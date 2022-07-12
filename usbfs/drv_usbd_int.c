@@ -58,8 +58,6 @@ static const uint8_t USB_SPEED[4] = {
     \param[out] none
     \retval     none
 */
-uint8_t s[16];
-
 void usbd_isr (usb_core_driver *udev)
 {
     if (HOST_MODE != (udev->regs.gr->GINTF & GINTF_COPM)) {

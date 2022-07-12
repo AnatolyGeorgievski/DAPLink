@@ -39,14 +39,6 @@ OF SUCH DAMAGE.
 #include "usbd_core.h"
 
 /* function declarations */
-/* USB send data in the control transaction */
-usbd_status usbd_ctl_send (usb_core_driver *udev);
-/* USB receive data in control transaction */
-usbd_status usbd_ctl_recev (usb_core_driver *udev);
-/* USB send control transaction status */
-usbd_status usbd_ctl_status_send (usb_core_driver *udev);
-/* USB control receive status */
-usbd_status usbd_ctl_status_recev (usb_core_driver *udev);
 /* USB setup stage processing */
 uint8_t usbd_setup_transc (usb_core_driver *udev);
 /* data out stage processing */

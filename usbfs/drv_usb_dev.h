@@ -144,8 +144,8 @@ typedef struct _usb_perp_dev
     usb_desc          *desc;                                    /*!< USB descriptors pointer */
     usb_class_core    *class_core;                              /*!< class driver */
     void              *class_data[USBD_ITF_MAX_NUM];                              /*!< class data pointer */
-    void              *user_data;                               /*!< user data pointer */
-    void              *pdata;                                   /*!< reserved data pointer */
+//    void              *user_data;                               /*!< user data pointer */
+//    void              *pdata;                                   /*!< reserved data pointer */
 } usb_perp_dev;
 
 typedef struct _usb_core_driver

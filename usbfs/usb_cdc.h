@@ -108,15 +108,24 @@ OF SUCH DAMAGE.
 
 /* CDC subclass code */
 enum usb_cdc_subclass {
-    USB_CDC_SUBCLASS_RESERVED = 0U,  /*!< reserved */
-    USB_CDC_SUBCLASS_DLCM,           /*!< direct line control mode */
-    USB_CDC_SUBCLASS_ACM,            /*!< abstract control mode */
-    USB_CDC_SUBCLASS_TCM,            /*!< telephone control mode */
-    USB_CDC_SUBCLASS_MCM,            /*!< multichannel control model */
-    USB_CDC_SUBCLASS_CCM,            /*!< CAPI control model */
-    USB_CDC_SUBCLASS_ENCM,           /*!< ethernet networking control model */
-    USB_CDC_SUBCLASS_ANCM            /*!< ATM networking control model */
+    USB_CDC_SUBCLASS_RESERVED = 0U,  /*!< RESERVED */
+    USB_CDC_SUBCLASS_DLCM,           /*!< direct line control model [USBPSTN1.2] */
+    USB_CDC_SUBCLASS_ACM,            /*!< abstract control model [USBPSTN1.2]*/
+    USB_CDC_SUBCLASS_TCM,            /*!< telephone control model [USBPSTN1.2]*/
+    USB_CDC_SUBCLASS_MCM,            /*!< multichannel control model [USBISDN1.2]*/
+    USB_CDC_SUBCLASS_CCM,            /*!< CAPI control model [USBISDN1.2] */
+    USB_CDC_SUBCLASS_ENCM,           /*!< ethernet networking control model [USBECM1.2] */
+    USB_CDC_SUBCLASS_ANCM,           /*!< ATM networking control model [USBATM1.2] */
+	USB_CDC_SUBCLASS_WHCM = 0x8,	 /*!< Wireless Handset Control Model [USBWMC1.1] */
+	USB_CDC_SUBCLASS_DMM = 0x9,		 /*!< Device Management [USBWMC1.1] */
+	USB_CDC_SUBCLASS_MDLM = 0xA,	 /*!< Mobile Direct Line Model [USBWMC1.1] */
+	USB_CDC_SUBCLASS_OBEX = 0xB,	 /*!< OBEX [USBWMC1.1] */
+	USB_CDC_SUBCLASS_EEM = 0xC, 	 /*!< Ethernet Emulation Model [USBEEM1.0] */
+	USB_CDC_SUBCLASS_NCM = 0xD, 	 /*!< Network Control Model [USBNCM1.0] */
 };
+#ifndef CDC_SUB_ITF_COUNT
+#define CDC_SUB_ITF_COUNT 1
+#endif
 
 #pragma pack(1)
 
@@ -159,23 +168,43 @@ typedef struct {
 typedef struct {
     usb_desc_header header;               /*!< descriptor header, including type and size. */
     uint8_t  bDescriptorSubtype;          /*!< bDescriptorSubtype: union function descriptor */
-    uint8_t  bMasterInterface;            /*!< bMasterInterface: communication class interface */
-    uint8_t  bSlaveInterface0;            /*!< bSlaveInterface0: data class interface */
+    uint8_t  bControlInterface;            /*!< bControlInterface: communication class interface */
+    uint8_t  bSubordinateInterface[CDC_SUB_ITF_COUNT];          /*!< bSubordinateInterface0..N: data class interface */
 } usb_desc_union_func;
 
 #pragma pack()
 
-typedef struct {
+typedef struct _usb_cdc_desc_config_set usb_cdc_desc_config_set;
+struct _usb_cdc_desc_config_set {
     usb_desc_config                  config;
-    usb_desc_itf                     cmd_itf;
+#if defined(DEBUG_ITF)
+	usb_desc_itf                     debug_itf; // мастер интерфейс
+	usb_desc_ep                      debug_out_endpoint;
+	usb_desc_ep                      debug_in_endpoint;
+#endif
+    usb_desc_itf                     cmd_itf; // мастер интерфейс
     usb_desc_header_func             cdc_header;
     usb_desc_call_managment_func     cdc_call_managment;
     usb_desc_acm_func                cdc_acm;
     usb_desc_union_func              cdc_union;
+#if 0
     usb_desc_ep                      cdc_cmd_endpoint;
-    usb_desc_itf                     cdc_data_interface;
-    usb_desc_ep                      cdc_out_endpoint;
-    usb_desc_ep                      cdc_in_endpoint;
-} usb_cdc_desc_config_set;
+#else
+#endif
+	struct _slave_itf { // слейв Data интерфейс
+		usb_desc_itf                     cdc_data_interface;
+		usb_desc_ep                      cdc_out_endpoint;
+		usb_desc_ep                      cdc_in_endpoint;
+	} cdc_sub_interfaces [CDC_SUB_ITF_COUNT];
+} __attribute__((packed));
+
+// 3.4.2.1 Protocol Data Wrapper
+struct _Data_Class_Protocol_Wrapper_Layout {
+	uint16_t	wLength;
+	uint8_t 	bDstProtocol;
+	uint8_t 	bSrcProtocol;
+	uint8_t 	BData[0];
+	
+};
 
 #endif /* __USB_CDC_H */

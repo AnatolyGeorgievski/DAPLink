@@ -33,9 +33,17 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWIS
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY 
 OF SUCH DAMAGE.
 */
-
+#include <stdio.h>
 #include "usbd_enum.h"
 #include "usbd_transc.h"
+/* USB send data in the control transaction */
+static usbd_status usbd_ctl_send (usb_core_driver *udev);
+/* USB receive data in control transaction */
+static usbd_status usbd_ctl_recev (usb_core_driver *udev);
+/* USB send control transaction status */
+static usbd_status usbd_ctl_status_send (usb_core_driver *udev);
+/* USB control receive status */
+static usbd_status usbd_ctl_status_recev (usb_core_driver *udev);
 
 /*!
     \brief      USB send data in the control transaction
@@ -43,7 +51,7 @@ OF SUCH DAMAGE.
     \param[out] none
     \retval     USB device operation cur_status
 */
-usbd_status usbd_ctl_send (usb_core_driver *udev)
+static usbd_status usbd_ctl_send (usb_core_driver *udev)
 {
     usb_transc *transc = &udev->dev.transc_in[0];
 
@@ -64,7 +72,7 @@ usbd_status usbd_ctl_send (usb_core_driver *udev)
     \param[out] none
     \retval     USB device operation cur_status
 */
-usbd_status usbd_ctl_recev (usb_core_driver *udev)
+static usbd_status usbd_ctl_recev (usb_core_driver *udev)
 {
     usb_transc *transc = &udev->dev.transc_out[0];
 
@@ -85,7 +93,7 @@ usbd_status usbd_ctl_recev (usb_core_driver *udev)
     \param[out] none
     \retval     USB device operation cur_status
 */
-usbd_status  usbd_ctl_status_send (usb_core_driver *udev)
+static usbd_status  usbd_ctl_status_send (usb_core_driver *udev)
 {
     udev->dev.control.ctl_state = (uint8_t)USB_CTL_STATUS_IN;
 
@@ -102,7 +110,7 @@ usbd_status  usbd_ctl_status_send (usb_core_driver *udev)
     \param[out] none
     \retval     USB device operation cur_status
 */
-usbd_status usbd_ctl_status_recev (usb_core_driver *udev)
+static usbd_status usbd_ctl_status_recev (usb_core_driver *udev)
 {
     udev->dev.control.ctl_state = (uint8_t)USB_CTL_STATUS_OUT;
 
@@ -178,11 +186,11 @@ uint8_t usbd_out_transc (usb_core_driver *udev, uint8_t ep_num)
         case USB_CTL_DATA_OUT:
             /* update transfer length */
             transc->remain_len -= transc->max_len;
-
+#if 0
             if ((uint8_t)USB_USE_DMA == udev->bp.transfer_mode) {
                 transc->xfer_buf += transc->max_len;
             }
-
+#endif
             (void)usbd_ctl_recev (udev);
             break;
 
@@ -202,6 +210,7 @@ uint8_t usbd_out_transc (usb_core_driver *udev, uint8_t ep_num)
             break;
         }
     } else if ((udev->dev.class_core->data_out != NULL) && (udev->dev.cur_status == (uint8_t)USBD_CONFIGURED)) {
+		debug("$");
         (void)udev->dev.class_core->data_out (udev, ep_num);
     } else {
         /* no operation */
@@ -217,6 +226,7 @@ uint8_t usbd_out_transc (usb_core_driver *udev, uint8_t ep_num)
     \param[out] none
     \retval     USB device operation cur_status
 */
+//static char s[32];
 uint8_t usbd_in_transc (usb_core_driver *udev, uint8_t ep_num)
 {
     if (0U == ep_num) {
@@ -226,11 +236,13 @@ uint8_t usbd_in_transc (usb_core_driver *udev, uint8_t ep_num)
         case USB_CTL_DATA_IN:
             /* update transfer length */
             transc->remain_len -= transc->max_len;
-
+#if 0
             if ((uint8_t)USB_USE_DMA == udev->bp.transfer_mode) {
                 transc->xfer_buf += transc->max_len;
             }
-
+#endif
+//	snprintf(s, 32, "Cs=%d.", transc->remain_len);
+//	debug(s);
             (void)usbd_ctl_send (udev);
             break;
 
@@ -238,7 +250,6 @@ uint8_t usbd_in_transc (usb_core_driver *udev, uint8_t ep_num)
             /* last packet is MPS multiple, so send ZLP packet */
             if (udev->dev.control.ctl_zlp) {
                 (void)usbd_ep_send (udev, 0U, NULL, 0U);
-
                 udev->dev.control.ctl_zlp = 0U;
             } else {
                 if (udev->dev.cur_status == (uint8_t)USBD_CONFIGURED) {
@@ -248,7 +259,6 @@ uint8_t usbd_in_transc (usb_core_driver *udev, uint8_t ep_num)
                 }
 
                 transc->remain_len = 0U;
-
                 (void)usbd_ctl_status_recev (udev);
             }
             break;

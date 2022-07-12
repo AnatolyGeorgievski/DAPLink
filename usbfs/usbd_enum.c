@@ -187,7 +187,7 @@ void serial_string_get (uint16_t *unicode_str)
 {
     if ((unicode_str[0] & 0x00FFU) != 6U) {
         uint32_t DeviceSerial0, DeviceSerial1, DeviceSerial2;
-
+// уникальный идентификатор 96 бит
         DeviceSerial0 = *(uint32_t*)DEVICE_ID1;
         DeviceSerial1 = *(uint32_t*)DEVICE_ID2;
         DeviceSerial2 = *(uint32_t*)DEVICE_ID3;
@@ -507,6 +507,7 @@ static usb_reqsta _usb_std_getdescriptor (usb_core_driver *udev, usb_req *req)
 
         switch (desc_type) {
         case USB_DESCTYPE_DEV:
+			if(0)debug("USB:get dev\r\n");
             transc->xfer_buf = udev->dev.desc->dev_desc;
 			transc->remain_len = (uint16_t)udev->dev.desc->dev_desc[0];
 			//std_desc_get[desc_type - 1U](udev, desc_index, (uint16_t *)&(transc->remain_len));
@@ -517,6 +518,7 @@ static usb_reqsta _usb_std_getdescriptor (usb_core_driver *udev, usb_req *req)
             break;
 
         case USB_DESCTYPE_CONFIG:
+			if(0)debug("USB:get conf\r\n");
             transc->xfer_buf = udev->dev.desc->config_desc;
 			transc->remain_len = (uint16_t)udev->dev.desc->config_desc[2];
 			//std_desc_get[desc_type - 1U](udev, desc_index, (uint16_t *)&(transc->remain_len));
@@ -526,6 +528,7 @@ static usb_reqsta _usb_std_getdescriptor (usb_core_driver *udev, usb_req *req)
             if (desc_index < (uint8_t)STR_IDX_MAX) {
                 transc->xfer_buf = udev->dev.desc->strings[desc_index];
 				transc->remain_len = (uint16_t)transc->xfer_buf[0];
+				if(0)debug("USB:get str\r\n");
 				//std_desc_get[desc_type - 1U](udev, desc_index, (uint16_t *)&(transc->remain_len));
             }
             break;

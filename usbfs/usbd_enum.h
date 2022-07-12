@@ -61,7 +61,7 @@ enum _str_index
 #ifndef WINUSB_EXEMPT_DRIVER
     STR_IDX_MAX                   = 0x6U,  /* string maximum index */
 #else
-    STR_IDX_MAX                   = 0xEFU, /* string maximum index */
+    STR_IDX_MAX                  /* = 0xEFU, *//* string maximum index */
 #endif /* WINUSB_EXEMPT_DRIVER */
 };
 

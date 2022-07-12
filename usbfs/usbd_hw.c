@@ -41,19 +41,30 @@ void usb_open(int32_t flag_idx)
 	usbd_init (&cdc_acm, USB_CORE_ENUM_FS, &cdc_desc, &cdc_class);
 	NVIC_SetPriority(USBFS_IRQn, (1<<(__NVIC_PRIO_BITS-1)));
 	NVIC_EnableIRQ(USBFS_IRQn);
+extern void cdc_acm_open(int32_t flag);
+	cdc_acm_open(flag_idx);
 	//puts("USB:done\r\n");
 }
 int usb_is_configured()
 {
 	return  (USBD_CONFIGURED == cdc_acm.dev.cur_status);
 }
+int usb_recv(uint8_t* data, size_t len){
+	
+	uint8_t ep_num  = CDC_DATA_OUT_EP;
+	len = ((usb_core_driver *)&cdc_acm)->dev.transc_out[ep_num].xfer_count;
+	usbd_ep_recev(&cdc_acm, CDC_DATA_OUT_EP, data, USB_CDC_DATA_PACKET_SIZE);
+	return len;
+}
 int usb_send_recv(uint8_t* data, size_t *len){
 	// установить буфер
-	usbd_ep_recev(udev, CDC_DATA_OUT_EP, (uint8_t*)(cdc->data), USB_CDC_DATA_PACKET_SIZE);
+	usbd_ep_recev(&cdc_acm, CDC_DATA_OUT_EP, data, USB_CDC_DATA_PACKET_SIZE);
 	// установить максимальный размер данных на приеме
 	return 0;
 }
 int usb_send(uint8_t* data, size_t len) {
+	return usbd_ep_send (&cdc_acm, CDC_DATA_IN_EP, data, len);
+/*
 	if (0U == cdc_acm_check_ready(&cdc_acm)) {
 		cdc_acm_data_receive(&cdc_acm);
 	} else {
@@ -61,7 +72,7 @@ int usb_send(uint8_t* data, size_t len) {
 		
 		cdc_acm_data_send(&cdc_acm);
 	}
-	return len;
+	return len;*/
 }
 void  USBFS_IRQHandler (void)
 {
