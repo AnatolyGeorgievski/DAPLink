@@ -294,7 +294,7 @@ static uint32_t usbd_int_rxfifo (usb_core_driver *udev)
             transc->xfer_buf += bcount;// Когда буфер обновляется??
             transc->xfer_count += bcount;
         } else {
-			// debug("$"); -- бывают пустые
+			//  -- бывают пустые
 		}
         break;
 
@@ -316,10 +316,7 @@ static uint32_t usbd_int_rxfifo (usb_core_driver *udev)
         break;
 
     default: {
-		{ 
-		if(0)debug("?");
 		}
-	}
         break;
     }
 

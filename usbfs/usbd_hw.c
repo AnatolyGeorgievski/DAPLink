@@ -8,12 +8,12 @@
 #include "cdc_acm_core.h"
 
 usb_core_driver cdc_acm;
-static osThreadId owner;
-static int32_t flag;
-void usb_open(int32_t flag_idx)
+static osThreadId owner[USBD_ITF_MAX_NUM];
+static int32_t flag[USBD_ITF_MAX_NUM];
+void usb_open(int32_t itf, int32_t flag_idx)
 {
-	flag = flag_idx;
-	owner = osThreadGetId();
+	flag[itf] = flag_idx;
+	owner[itf] = osThreadGetId();
 #ifdef USE_IRC48M
 	RCU_ADDCTL |= RCU_ADDCTL_IRC48MEN;/* enable IRC48M clock */
 	while ((RCU_ADDCTL & RCU_ADDCTL_IRC48MSTB)==0);/* wait till IRC48M is ready */

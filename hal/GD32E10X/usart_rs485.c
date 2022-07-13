@@ -22,32 +22,63 @@ typedef struct _USART USART_t;
 struct _USART { 
 	uint32_t port;
 	int IRQn;
-	DMA_Channel_t* tx_dma;
-	DMA_Channel_t* rx_dma;
+	uint32_t dmax;
+	uint8_t tx_dma_channel, rx_dma_channel;
 };
 static USART_Handle usart_ports[3];
 static const USART_t usarts[] = {
 #ifdef BOARD_USART0
-	{USART0, USART0_IRQn, DMA0_Channel3, DMA0_Channel4}, 
+	{USART0, USART0_IRQn, DMA0, 3, 4}, 
 #endif
 #ifdef BOARD_USART1
-	{USART1, USART1_IRQn, DMA0_Channel6, DMA0_Channel5}, 
+	{USART1, USART1_IRQn, DMA0, 6, 5}, 
 #endif
 #ifdef BOARD_USART2
-	{USART2, USART2_IRQn, DMA0_Channel1, DMA0_Channel2}
+	{USART2, USART2_IRQn, DMA0, 1, 2}
 #endif
 };
+#define ARM_USART_CONTROL_Pos 16
+#define ARM_USART_CONTROL_Msk (0x1FUL<<ARM_USART_CONTROL_Pos)
+#define ARM_USART_MODE_ASYNCHRONOUS  (0x01UL << ARM_USART_CONTROL_Pos)
+#define ARM_USART_MODE_SINGLE_WIRE   (0x04UL << ARM_USART_CONTROL_Pos)
+#define ARM_USART_CONTROL_BREAK      (0x17UL << ARM_USART_CONTROL_Pos)
 
+#define _CONTROL_ASYNC  (0x01UL) // ARM_USART_MODE_ASYNCHRONOUS
+#define _CONTROL_BREAK  (0x17UL)
+static int usart_rs485_ctrl(uint32_t usartx, uint32_t options, uint32_t value)
+{
+	int res = 0;
+	switch (options&ARM_USART_CONTROL_Msk){
+	case ARM_USART_MODE_ASYNCHRONOUS: {// ARM_USART_MODE_ASYNCHRONOUS   
+		uint32_t baudrate = value;
+		uint32_t pclk = (usartx==USART0)? BOARD_PCLK2: BOARD_PCLK1;
+		USART_BAUD(usartx) = (pclk*1000000UL + baudrate/2U)/baudrate;
+	} break;
+	case ARM_USART_CONTROL_BREAK:
+		//value: 1-enable, 2-disable
+		break;
+	default:
+		res = -1;
+		break;
+	}
+	return res;
+}
 static void usart_rs485_init(uint32_t usartx)
 {
 	// usart_baudrate_set	
+#if defined (BOARD_USART0) && defined (BOARD_USART0_BAUDRATE)
 	if (usartx==USART0) {
-		USART_BAUD(USART0) =  (BOARD_PCLK2 + BOARD_USART0_BAUDRATE/2U)/BOARD_USART0_BAUDRATE;
-	}
-	else 
+		USART_BAUD(USART0) =  (BOARD_PCLK2*1000000UL + BOARD_USART0_BAUDRATE/2U)/BOARD_USART0_BAUDRATE;
+	} else 
+#endif
 #if defined (BOARD_USART1) && defined (BOARD_USART1_BAUDRATE)
 	if (usartx==USART1){
-		USART_BAUD(USART1) =  (BOARD_PCLK1 + BOARD_USART1_BAUDRATE/2U)/BOARD_USART1_BAUDRATE;
+		USART_BAUD(USART1) =  (BOARD_PCLK1*1000000UL + BOARD_USART1_BAUDRATE/2U)/BOARD_USART1_BAUDRATE;
+	} else
+#endif
+#if defined (BOARD_USART2) && defined (BOARD_USART2_BAUDRATE)
+	if (usartx==USART2){
+		USART_BAUD(USART2) =  (BOARD_PCLK1*1000000UL + BOARD_USART2_BAUDRATE/2U)/BOARD_USART2_BAUDRATE;
 	} else
 #endif
 	{}
@@ -72,17 +103,38 @@ void* usart_open(uint32_t uart_id, int32_t flag)
 	//NVIC_EnableIRQ(usart->IRQn);
 	return h;
 }
-#if 0
-void* usart_dma_open(uint32_t uart_id, int32_t flag)
+#if 1
+void* usart_dma_init(void* vh, int32_t flag)
 {
+	USART_Handle* h = vh;
+	const USART_t *usart = &usarts[h->uart_id];
 	uint32_t usartx=usart->port; 
-	DMA_init(usart->tx_dma, DMA_CCR_DIR|DMA_CCR_MINC|DMA_CCR_PSIZE_0| DMA_CCR_TCIE | DMA_CCR_TEIE, (void*)&uart->TDR);
-	DMA_init(usart->rx_dma, DMA_CCR_MINC| DMA_CCR_TCIE | DMA_CCR_HTIE | DMA_CCR_TEIE, (void*)&uart->RDR);
+	DMA_Channel_t * tx_dma = DMA_channel(usart->dmax, usart->tx_dma_channel);
+	DMA_init(tx_dma, DMA_CHXCTL_DIR|DMA_CHXCTL_MNAGA|DMA_CHXCTL_FTFIE | DMA_CHXCTL_ERRIE, (void*)((usartx) + 0x04U));
+	USART_CTL2(usartx) = (USART_CTL2(usartx) &~ (USART_CTL2_DENT)) | (USART_CTL2_DENT);
+	
+	DMA_Channel_t * rx_dma = DMA_channel(usart->dmax, usart->rx_dma_channel);
+	DMA_init(rx_dma, DMA_CHXCTL_MNAGA| DMA_CHXCTL_FTFIE| DMA_CHXCTL_CMEN | DMA_CHXCTL_HTFIE | DMA_CHXCTL_ERRIE, (void*)((usartx) + 0x04U));
 	/* configure DMA reception */
-	// USART_CTL2(usartx) = (USART_CTL2(usartx) &~ (USART_CTL2_DENR|USART_CTL2_DENT)) | ()
-	// USART_CTL2(usartx) |= (USART_CTL2_DENR|USART_CTL2_DENT);
+	USART_CTL2(usartx) = (USART_CTL2(usartx) &~ (USART_CTL2_DENR)) | (USART_CTL2_DENR);
+	
+	return h;
 }
 #endif
+void usart_dma_send(void* vh, void* data, uint16_t size)
+{
+	USART_Handle* h = vh;
+	const USART_t *usart = &usarts[h->uart_id];
+	DMA_Channel_t * tx_dma = DMA_channel(usart->dmax, usart->tx_dma_channel);
+	DMA_send_recv(tx_dma, data, size);
+}
+void usart_dma_recv(void* vh, void* data, uint16_t size)
+{
+	USART_Handle* h = vh;
+	const USART_t *usart = &usarts[h->uart_id];
+	DMA_Channel_t * rx_dma = DMA_channel(usart->dmax, usart->rx_dma_channel);
+	DMA_send_recv(rx_dma, data, size);
+}
 void usart_send(void* vh, void* data, uint16_t size)
 {
 	USART_Handle* h = vh;

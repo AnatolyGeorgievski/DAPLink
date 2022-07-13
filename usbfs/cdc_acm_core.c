@@ -664,19 +664,23 @@ static uint8_t cdc_ctlx_out (usb_dev *udev)
 {
     usb_cdc_handler *cdc = (usb_cdc_handler *)udev->dev.class_data[CDC_COM_INTERFACE];
 
-    if (udev->dev.class_core->alter_set != NO_CMD) {
+    switch (udev->dev.class_core->alter_set) {
         /* process the command data */
+	case SEND_ENCAPSULATED_COMMAND:
+		//printf("", cmd);
+		break;
+	case SET_LINE_CODING:
         cdc->line_coding.dwDTERate = (uint32_t)((uint32_t)cdc->cmd[0] | 
                                                ((uint32_t)cdc->cmd[1] << 8U) | 
                                                ((uint32_t)cdc->cmd[2] << 16U) | 
                                                ((uint32_t)cdc->cmd[3] << 24U));
-
         cdc->line_coding.bCharFormat = cdc->cmd[4];
         cdc->line_coding.bParityType = cdc->cmd[5];
-        cdc->line_coding.bDataBits = cdc->cmd[6];
-
-        udev->dev.class_core->alter_set = NO_CMD;
+        cdc->line_coding.bDataBits   = cdc->cmd[6];
+		break;
+	default: break;
     }
+    udev->dev.class_core->alter_set = NO_CMD;
 
     return USBD_OK;
 }

@@ -222,7 +222,7 @@ usb_status usb_transc0_active (usb_core_driver *udev, usb_transc *transc)
 usb_status usb_transc_active (usb_core_driver *udev, usb_transc *transc)
 {
     __IO uint32_t *reg_addr = NULL;
-    __IO uint32_t epinten = 0U;
+    uint32_t epinten = 0U;
 
     /* get the endpoint number */
     uint8_t ep_num = transc->ep_addr.num;

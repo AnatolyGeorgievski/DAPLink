@@ -48,10 +48,10 @@ OF SUCH DAMAGE.
 
 #define CDC_DATA_IN_EP                      EP1_IN  /* EP1 for data IN */
 #define CDC_DATA_OUT_EP                     EP1_OUT /* EP3 for data OUT */
-#define CDC_DATA1_IN_EP                      EP2_IN  /* EP1 for data IN */
-#define CDC_DATA1_OUT_EP                     EP2_OUT /* EP3 for data OUT */
-#define CDC_DATA2_IN_EP                      EP3_IN  /* EP1 for data IN */
-#define CDC_DATA2_OUT_EP                     EP3_OUT /* EP3 for data OUT */
+#define CDC_DATA1_IN_EP                     EP2_IN  /* EP1 for data IN */
+#define CDC_DATA1_OUT_EP                    EP2_OUT /* EP3 for data OUT */
+#define CDC_DATA2_IN_EP                     EP3_IN  /* EP1 for data IN */
+#define CDC_DATA2_OUT_EP                    EP3_OUT /* EP3 for data OUT */
 #define CDC_CMD_EP                          EP3_IN  /* EP2 for CDC commands */
 
 #define USB_STRING_COUNT                    4U

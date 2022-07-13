@@ -38,6 +38,12 @@
 # thumb/v7e-m+fp/hard;@mthumb@march=armv7e-m+fp@mfloat-abi=hard
 # thumb/v8-m.base/nofp;@mthumb@march=armv8-m.base@mfloat-abi=soft
 # thumb/v8-m.main+fp/hard;@mthumb@march=armv8-m.main+fp@mfloat-abi=hard
+# $ riscv64-unknown-elf-gcc -print-multi-lib
+# \see https://en.wikipedia.org/wiki/RISC-V#ISA_base_and_extensions
+# rv32iac/ilp32;@march=rv32iac@mabi=ilp32 -- без умножения
+# rv32imac/ilp32;@march=rv32imac@mabi=ilp32 -- это подходит
+# rv32imafc/ilp32f;@march=rv32imafc@mabi=ilp32f -- с FPU
+
 
 CLANG ?= clang -target arm-none-eabi
 #-I/c/Program\ Files\ \(x86\)/GNU\ Tools\ ARM\ Embedded/9\ 2019-q4-major/arm-none-eabi/include 
@@ -82,6 +88,12 @@ else ifeq ($(ARCH), CORTEXM55)
 else ifeq ($(ARCH), CORTEXR5F)
 # 	VFPv3-D16 -- ARM Vector Floating Point v3 architecture, with 16 double-precision registers
     OPTIMIZATION += -mthumb -mcpu=cortex-r5 -march=armv7-r+vfpv3-d16 -mfloat-abi=hard -mfpu=vfpv3-d16 -std=c11
+else ifeq ($(ARCH), RV32IMAC)
+# integer mul/div atomic compressed 
+    OPTIMIZATION += -march=rv32imac -mabi=ilp32  -std=c11
+else ifeq ($(ARCH), RV32IMAFC)
+# integer mul/div atomic compressed FPU
+    OPTIMIZATION += -march=rv32imafc -mabi=ilp32f  -std=c11
 else
     OPTIMIZATION += -march=armv4t
 endif
@@ -123,6 +135,7 @@ SRC += \
 	hal/$(CHIP)/adc.c \
 	hal/$(CHIP)/pvd.c \
 	hal/$(CHIP)/iwdg.c \
+	hal/$(CHIP)/dma.c \
 	hal/$(CHIP)/iflash.c
 # временно
 #	hal/$(CHIP)/crc.c

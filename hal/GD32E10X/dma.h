@@ -85,4 +85,28 @@ static inline void DMA_disable(DMA_Channel_t* ds)
 {
 	ds->CTL &= ~(uint32_t)DMA_CHXCTL_CHEN;
 }
+/*! \brief Разрешить прерывание для выбранного канала DMA
+	\param ds канал DMA контроллера
+	\param intf флаги прерывания
+		\arg DMA_CHXCTL_CHEN 	channel enable
+		\arg DMA_CHXCTL_FTFIE full enable bit for channel full transfer finish interrupt
+		\arg DMA_CHXCTL_HTFIE enable bit for channel half transfer finish interrupt
+		\arg DMA_CHXCTL_ERRIE enable bit for channel error interrupt
+ */
+static inline void DMA_channel_IT_enable(DMA_Channel_t* ds, uint32_t intf)
+{
+	ds->CTL |= (uint32_t)(intf&0xF);
+}
+/*! \brief Запретить прерывание для выбранного канала DMA 
+	\param ds канал DMA контроллера
+	\param intf флаги прерывания
+		\arg DMA_CHXCTL_CHEN 	channel enable
+		\arg DMA_CHXCTL_FTFIE full enable bit for channel full transfer finish interrupt
+		\arg DMA_CHXCTL_HTFIE enable bit for channel half transfer finish interrupt
+		\arg DMA_CHXCTL_ERRIE enable bit for channel error interrupt
+ */
+static inline void DMA_IT_disable(DMA_Channel_t* ds, int index, uint32_t intf)
+{
+	ds->CTL &= ~(uint32_t)(intf&0xF);
+}
 #endif //DMA_H

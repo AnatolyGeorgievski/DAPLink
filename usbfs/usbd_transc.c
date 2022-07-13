@@ -142,11 +142,13 @@ uint8_t usbd_setup_transc (usb_core_driver *udev)
     /* device class request */
     case USB_REQTYPE_CLASS:
         reqstat = usbd_class_request (udev, &req);
+		debug("Cr.");
         break;
 
     /* vendor defined request */
     case USB_REQTYPE_VENDOR:
         reqstat = usbd_vendor_request (udev, &req);
+		debug("Vr.");
         break;
 
     default:
@@ -198,6 +200,7 @@ uint8_t usbd_out_transc (usb_core_driver *udev, uint8_t ep_num)
             if (udev->dev.cur_status == (uint8_t)USBD_CONFIGURED) {
                 if (udev->dev.class_core->ctlx_out != NULL) {
                     (void)udev->dev.class_core->ctlx_out (udev);
+					//debug("SS.");
                 }
             }
 
@@ -210,7 +213,6 @@ uint8_t usbd_out_transc (usb_core_driver *udev, uint8_t ep_num)
             break;
         }
     } else if ((udev->dev.class_core->data_out != NULL) && (udev->dev.cur_status == (uint8_t)USBD_CONFIGURED)) {
-		debug("$");
         (void)udev->dev.class_core->data_out (udev, ep_num);
     } else {
         /* no operation */
@@ -226,7 +228,6 @@ uint8_t usbd_out_transc (usb_core_driver *udev, uint8_t ep_num)
     \param[out] none
     \retval     USB device operation cur_status
 */
-//static char s[32];
 uint8_t usbd_in_transc (usb_core_driver *udev, uint8_t ep_num)
 {
     if (0U == ep_num) {
@@ -241,8 +242,12 @@ uint8_t usbd_in_transc (usb_core_driver *udev, uint8_t ep_num)
                 transc->xfer_buf += transc->max_len;
             }
 #endif
-//	snprintf(s, 32, "Cs=%d.", transc->remain_len);
+//kprintf(const char* fmt) {
+//	
+//  char s[32];
+//	snprintf(s, 32, fmt, transc->remain_len);
 //	debug(s);
+//}
             (void)usbd_ctl_send (udev);
             break;
 
