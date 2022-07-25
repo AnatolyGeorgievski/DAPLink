@@ -52,7 +52,7 @@ static void*  iFLASH_load(void* base, void* buffer, uint32_t block, uint32_t siz
 __attribute__((section(".ramfunc")))
 int iFLASH_store(void* base, const void* buffer, uint32_t  block, uint32_t  size)
 { 
-	while (FMC_STAT & FMC_BUSY); // ждем завершения предыдущей операции
+	while (FMC_STAT & FMC_STAT_BUSY); // ждем завершения предыдущей операции
 
 	if (FMC_CTL & FMC_CTL_LK)
 	{ // unlock 
@@ -75,7 +75,7 @@ int iFLASH_store(void* base, const void* buffer, uint32_t  block, uint32_t  size
 		FMC_CTL |= FMC_CTL_PER;    /* (2) set PER page erase bit */
 		FMC_ADDR  = (uint32_t)dst; /* (3) */
 		FMC_CTL |= FMC_CTL_START;  /* (4) op start */
-		while (FMC_STAT & FMC_BUSY);	/* (5) */
+		while (FMC_STAT & FMC_STAT_BUSY);	/* (5) */
 		FMC_CTL &= ~FMC_CTL_PER;
 	}
 
@@ -90,7 +90,7 @@ int iFLASH_store(void* base, const void* buffer, uint32_t  block, uint32_t  size
 		do {
 			FMC_CTL |=  FMC_CTL_PG; // program
 			*dst++ = *src++;
-			while (FMC_STAT & FMC_BUSY);	/* (3) */
+			while (FMC_STAT & FMC_STAT_BUSY);	/* (3) */
 		}	while (--size);
 		FMC_CTL &= ~FMC_CTL_PG; // program
 	}
@@ -103,7 +103,7 @@ int iFLASH_log(void* base, uint32_t offset, const void* buffer, uint32_t  size)
 {
 	uint32_t *dst = base+offset;
 	uint32_t const*src = buffer;
-	while (FMC_STAT & FMC_BUSY); // ждем завершения предыдущей операции
+	while (FMC_STAT & FMC_STAT_BUSY); // ждем завершения предыдущей операции
 
 	if (FMC_CTL & FMC_CTL_LK)
 	{ // unlock 
@@ -116,7 +116,7 @@ int iFLASH_log(void* base, uint32_t offset, const void* buffer, uint32_t  size)
 		FMC_CTL |=  FMC_CTL_PG; // program
 		do {
 			*dst++ = *src++;
-			while (FMC_STAT & FMC_BUSY);
+			while (FMC_STAT & FMC_STAT_BUSY);
 		}   while (--size);
 		FMC_CTL &= ~FMC_CTL_PG; // program
 	}

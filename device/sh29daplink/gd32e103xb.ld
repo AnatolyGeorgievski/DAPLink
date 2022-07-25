@@ -43,6 +43,15 @@ SECTIONS
 		*(.glue_7t)
 
 		. = ALIGN(4);
+		__start_init_array = .;/* конструкторы */
+		*(.init_array)
+		__stop_init_array = .;
+		__start_ModList = .;
+		*(MOD)
+		__stop_ModList = .;
+		__start_r3_cmd_callbacks = .;
+		*(r3_cmd_callbacks)
+		__stop_r3_cmd_callbacks = .;
 	 _etext = .;
 		/* This is used by the startup in order to initialize the .data secion */
 	 _sidata = _etext;
@@ -62,21 +71,6 @@ SECTIONS
 		*(.data.*)
 		*(.RAMtext)
 		*(.ramfunc) /* Added by iFred for compatibility reasons */
-
-		. = ALIGN(4);
-
-		__start_init_array = .;/* конструкторы */
-		*(.init_array)
-		__stop_init_array = .;
-		__start_ModList = .;
-		*(MOD)
-		__stop_ModList = .;
-		__start_r3_cmd_callbacks = .;
-		*(r3_cmd_callbacks)
-		__stop_r3_cmd_callbacks = .;
-		__start_MIB = .;
-		*(MIB)
-		__stop_MIB = .;
 
 		. = ALIGN(4);
 		__start_config = .;
