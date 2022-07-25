@@ -186,14 +186,14 @@ usb_status usb_transc0_active (usb_core_driver *udev, usb_transc *transc)
     __IO uint32_t *reg_addr = NULL;
 
     /* get the endpoint number */
-    uint8_t ep_num = transc->ep_addr.num;
+    uint8_t ep_num = EP_ID(transc->ep_addr);
 
     if (ep_num) {
         /* not endpoint 0 */
         return USB_FAIL;
     }
 
-    if (transc->ep_addr.dir) {
+    if (EP_DIR(transc->ep_addr)) {
         reg_addr = &udev->regs.er_in[0]->DIEPCTL;
     } else {
         reg_addr = &udev->regs.er_out[0]->DOEPCTL;
@@ -225,10 +225,10 @@ usb_status usb_transc_active (usb_core_driver *udev, usb_transc *transc)
     uint32_t epinten = 0U;
 
     /* get the endpoint number */
-    uint8_t ep_num = transc->ep_addr.num;
+    uint8_t ep_num = EP_ID(transc->ep_addr);
 
     /* enable endpoint interrupt number */
-    if (transc->ep_addr.dir) {
+    if (EP_DIR(transc->ep_addr)) {
         reg_addr = &udev->regs.er_in[ep_num]->DIEPCTL;
 
         epinten = 1U << ep_num;
@@ -271,10 +271,10 @@ usb_status usb_transc_deactivate(usb_core_driver *udev, usb_transc *transc)
 {
     uint32_t epinten = 0U;
 
-    uint8_t ep_num = transc->ep_addr.num;
+    uint8_t ep_num = EP_ID(transc->ep_addr);
 
     /* disable endpoint interrupt number */
-    if (transc->ep_addr.dir) {
+    if (EP_DIR(transc->ep_addr)) {
         epinten = 1U << ep_num;
 
         udev->regs.er_in[ep_num]->DIEPCTL &= ~DEPCTL_EPACT;
@@ -302,7 +302,7 @@ usb_status usb_transc_inxfer (usb_core_driver *udev, usb_transc *transc)
 {
     usb_status status = USB_OK;
 
-    uint8_t ep_num = transc->ep_addr.num;
+    uint8_t ep_num = EP_ID(transc->ep_addr);
 
     uint32_t epctl = udev->regs.er_in[ep_num]->DIEPCTL;
     uint32_t eplen = udev->regs.er_in[ep_num]->DIEPLEN;
@@ -316,7 +316,7 @@ usb_status usb_transc_inxfer (usb_core_driver *udev, usb_transc *transc)
     } else {
         /* set transfer packet count */
         if (0U == ep_num) {
-            transc->xfer_len = USB_MIN(transc->xfer_len, transc->max_len);
+            if (transc->xfer_len>transc->max_len) transc->xfer_len = transc->max_len;// USB_MIN(transc->xfer_len, transc->max_len);
 
             eplen |= 1U << 19U;
         } else {
@@ -380,7 +380,7 @@ usb_status usb_transc_outxfer (usb_core_driver *udev, usb_transc *transc)
 {
     usb_status status = USB_OK;
 
-    uint8_t ep_num = transc->ep_addr.num;
+    uint8_t ep_num = EP_ID(transc->ep_addr);
 
     uint32_t epctl = udev->regs.er_out[ep_num]->DOEPCTL;
     uint32_t eplen = udev->regs.er_out[ep_num]->DOEPLEN;
@@ -438,9 +438,9 @@ usb_status usb_transc_stall (usb_core_driver *udev, usb_transc *transc)
 {
     __IO uint32_t *reg_addr = NULL;
 
-    uint8_t ep_num = transc->ep_addr.num;
+    uint8_t ep_num = EP_ID(transc->ep_addr);
 
-    if (transc->ep_addr.dir) {
+    if (EP_DIR(transc->ep_addr)) {
         reg_addr = &(udev->regs.er_in[ep_num]->DIEPCTL);
 
         /* set the endpoint disable bit */
@@ -469,9 +469,9 @@ usb_status usb_transc_clrstall(usb_core_driver *udev, usb_transc *transc)
 {
     __IO uint32_t *reg_addr = NULL;
 
-    uint8_t ep_num = transc->ep_addr.num;
+    uint8_t ep_num = EP_ID(transc->ep_addr);
 
-    if (transc->ep_addr.dir) {
+    if (EP_DIR(transc->ep_addr)) {
         reg_addr = &(udev->regs.er_in[ep_num]->DIEPCTL);
     } else {
         reg_addr = &(udev->regs.er_out[ep_num]->DOEPCTL);
@@ -488,27 +488,7 @@ usb_status usb_transc_clrstall(usb_core_driver *udev, usb_transc *transc)
     return USB_OK;
 }
 
-/*!
-    \brief      read device IN endpoint interrupt flag register
-    \param[in]  udev: pointer to USB device
-    \param[in]  ep_num: endpoint number
-    \param[out] none
-    \retval     interrupt value
-*/
-uint32_t usb_iepintr_read (usb_core_driver *udev, uint8_t ep_num)
-{
-    uint32_t value = 0U, fifoemptymask, commonintmask;
 
-    commonintmask = udev->regs.dr->DIEPINTEN;
-    fifoemptymask = udev->regs.dr->DIEPFEINTEN;
-
-    /* check FIFO empty interrupt enable bit */
-    commonintmask |= ((fifoemptymask >> ep_num) & 0x1U) << 7;
-
-    value = udev->regs.er_in[ep_num]->DIEPINTF & commonintmask;
-
-    return value;
-}
 
 /*!
     \brief      configures OUT endpoint 0 to receive SETUP packets

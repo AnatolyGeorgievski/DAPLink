@@ -36,6 +36,7 @@ OF SUCH DAMAGE.
 #include "usbd_core.h"
 #include "usbd_enum.h"
 #include "drv_usb_hw.h"
+#include "atomic.h"
 
 /* endpoint type 
 enum _usbx_type {
@@ -68,9 +69,9 @@ const uint32_t ep_type[] = {
     \param[out] none
     \retval     none
 */
-void usbd_init (usb_core_driver *udev, usb_core_enum core, usb_desc *desc, usb_class_core *class_core)
+void usbd_init (usb_core_driver *udev, usb_core_enum core, const usb_desc *desc, usb_class_core *class_core)
 {
-    udev->dev.desc = desc;
+    udev->dev.desc = (usb_desc *)desc;
 
     /* class callbacks */
     udev->dev.class_core = class_core;
@@ -121,17 +122,12 @@ uint32_t usbd_ep_setup (usb_core_driver *udev, const usb_desc_ep *ep_desc)
     /* set endpoint direction */
     if (EP_DIR(ep_addr)) {
         transc = &udev->dev.transc_in[EP_ID(ep_addr)];
-
-        transc->ep_addr.dir = 1U;
-    } else {
-        transc = &udev->dev.transc_out[ep_addr];
-
-        transc->ep_addr.dir = 0U;
+  } else {
+        transc = &udev->dev.transc_out[EP_ID(ep_addr)];
     }
-
-    transc->ep_addr.num = EP_ID(ep_addr);
-    transc->max_len = max_len;
+	transc->ep_addr = ep_addr;
     transc->ep_type = (uint8_t)( ep_desc->bmAttributes & USB_EPTYPE_MASK);
+    transc->max_len = max_len;
 	// (uint8_t)ep_type[ep_desc->bmAttributes & (uint8_t)USB_EPTYPE_MASK]; -- бред
 
     /* active USB endpoint function */
@@ -176,7 +172,7 @@ uint32_t usbd_ep_clear (usb_core_driver *udev, uint8_t ep_addr)
     \param[in]  pbuf: user buffer address pointer
     \param[in]  len: buffer length
     \param[out] none
-    \retval     none
+    \retval     число байт в буфере приема
 */
 uint32_t usbd_ep_recev (usb_core_driver *udev, uint8_t ep_addr, uint8_t *pbuf, uint32_t len)
 {
@@ -185,7 +181,7 @@ uint32_t usbd_ep_recev (usb_core_driver *udev, uint8_t ep_addr, uint8_t *pbuf, u
     /* setup the transfer */
     transc->xfer_buf = pbuf;
     transc->xfer_len = len;
-    transc->xfer_count = 0U;
+    len = atomic_exchange(&transc->xfer_count, 0U);
 #if 0
     if ((uint8_t)USB_USE_DMA == udev->bp.transfer_mode) {
         transc->dma_addr = (uint32_t)pbuf;
@@ -194,7 +190,7 @@ uint32_t usbd_ep_recev (usb_core_driver *udev, uint8_t ep_addr, uint8_t *pbuf, u
     /* start the transfer */
     (void)usb_transc_outxfer (udev, transc);
 
-    return 0U;
+    return len;
 }
 
 /*!

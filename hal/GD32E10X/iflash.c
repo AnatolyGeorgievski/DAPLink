@@ -85,10 +85,10 @@ int iFLASH_store(void* base, const void* buffer, uint32_t  block, uint32_t  size
 /* (4) Reset the PG Bit to disable programming */	
 	
 	uint32_t const*src = buffer;
-	size >>=2; // по словам 16 бит
+	size >>=2; // по словам 32 бит
 	if (size) {
-		FMC_CTL |=  FMC_CTL_PG; // program
 		do {
+			FMC_CTL |=  FMC_CTL_PG; // program
 			*dst++ = *src++;
 			while (FMC_STAT & FMC_BUSY);	/* (3) */
 		}	while (--size);

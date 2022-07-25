@@ -80,11 +80,14 @@ typedef struct _usb_control {
 
 typedef struct
 {
+#if 0
     struct {
         uint8_t num: 4;                                                 /*!< the endpoint number.it can be from 0 to 6 */
         uint8_t pad: 3;                                                 /*!< padding between number and direction */
         uint8_t dir: 1;                                                 /*!< the endpoint direction */
     } ep_addr;
+#endif
+	uint8_t ep_addr;
 
     uint8_t        ep_type;                                             /*!< USB endpoint type */
     uint8_t        ep_stall;                                            /*!< USB endpoint stall status */
@@ -201,9 +204,7 @@ __STATIC_INLINE void usb_devaddr_set (usb_core_driver *udev, uint8_t dev_addr)
 __STATIC_INLINE uint32_t usb_oepintnum_read (usb_core_driver *udev)
 {
     uint32_t value = udev->regs.dr->DAEPINT;
-
     value &= udev->regs.dr->DAEPINTEN;
-
     return (value & DAEPINT_OEPITB) >> 16U;
 }
 
@@ -217,10 +218,8 @@ __STATIC_INLINE uint32_t usb_oepintnum_read (usb_core_driver *udev)
 __STATIC_INLINE uint32_t usb_oepintr_read (usb_core_driver *udev, uint8_t ep_num)
 {
     uint32_t value = udev->regs.er_out[ep_num]->DOEPINTF;
-
-    value &= udev->regs.dr->DOEPINTEN;
-
-    return value;
+    uint32_t mask  = udev->regs.dr->DOEPINTEN;
+    return value & mask;
 }
 
 /*!
@@ -232,12 +231,25 @@ __STATIC_INLINE uint32_t usb_oepintr_read (usb_core_driver *udev, uint8_t ep_num
 __STATIC_INLINE uint32_t usb_iepintnum_read (usb_core_driver *udev)
 {
     uint32_t value = udev->regs.dr->DAEPINT;
-
     value &= udev->regs.dr->DAEPINTEN;
-    
     return value & DAEPINT_IEPITB;
 }
 
+/*!
+    \brief      read device IN endpoint interrupt flag register
+    \param[in]  udev: pointer to USB device
+    \param[in]  ep_num: endpoint number
+    \param[out] none
+    \retval     interrupt value
+*/
+__STATIC_INLINE uint32_t usb_iepintr_read (usb_core_driver *udev, uint8_t ep_num)
+{
+    uint32_t value = udev->regs.er_in[ep_num]->DIEPINTF;
+    uint32_t mask = udev->regs.dr->DIEPINTEN;
+    /* check FIFO empty interrupt enable bit */
+	mask |= ((udev->regs.dr->DIEPFEINTEN >> ep_num) & 0x1U) << 7;
+    return value & mask;
+}
 /*!
     \brief      set remote wakeup signaling
     \param[in]  udev: pointer to USB device

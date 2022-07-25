@@ -81,7 +81,7 @@ __STATIC_INLINE uint16_t usbd_rxcount_get (usb_core_driver *udev, uint8_t ep_num
 
 /* function declarations */
 /* initializes the USB device-mode stack and load the class driver */
-void usbd_init (usb_core_driver *udev, usb_core_enum core, usb_desc *desc, usb_class_core *class_core);
+void usbd_init (usb_core_driver *udev, usb_core_enum core, const usb_desc *desc, usb_class_core *class_core);
 /* endpoint initialization */
 uint32_t usbd_ep_setup (usb_core_driver *udev, const usb_desc_ep *ep_desc);
 /* configure the endpoint when it is disabled */

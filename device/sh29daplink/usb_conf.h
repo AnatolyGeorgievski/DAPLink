@@ -93,10 +93,10 @@ OF SUCH DAMAGE.
 
 #ifdef USB_FS_CORE
     #define RX_FIFO_FS_SIZE                         128
-    #define TX0_FIFO_FS_SIZE                        128
-    #define TX1_FIFO_FS_SIZE                        128
-    #define TX2_FIFO_FS_SIZE                        128
-    #define TX3_FIFO_FS_SIZE                        128
+    #define TX0_FIFO_FS_SIZE                        64
+    #define TX1_FIFO_FS_SIZE                        64
+    #define TX2_FIFO_FS_SIZE                        64
+    #define TX3_FIFO_FS_SIZE                        64
 #endif /* USB_FS_CORE */
 
 #define USB_SOF_OUTPUT              1

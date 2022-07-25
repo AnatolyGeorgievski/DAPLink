@@ -47,6 +47,9 @@ OF SUCH DAMAGE.
 #define USBD_PID                          0x018AU
 #endif
 
+
+static void cdc_user_notify(uint8_t ep_num, int flag);
+
 /* note:it should use the C99 standard when compiling the below codes */
 /* USB standard device descriptor */
 const usb_desc_dev cdc_dev_desc =
@@ -397,7 +400,8 @@ static const usb_desc_str interface_string =
 };
 
 /* USBD serial string */
-static usb_desc_str serial_string = 
+//static 
+usb_desc_str serial_string = 
 {
     .header = 
      {
@@ -417,35 +421,18 @@ void *const usbd_cdc_strings[] =
     [STR_IDX_ITF]  = (uint8_t *)&interface_string
 };
 
-usb_desc cdc_desc = 
+const usb_desc cdc_desc = 
 {
     .dev_desc    = (uint8_t *)&cdc_dev_desc,
     .config_desc = (uint8_t *)&cdc_config_desc,
     .strings     = usbd_cdc_strings
 };
-
-/* local function prototypes ('static') */
-static uint8_t cdc_acm_init   (usb_dev *udev, uint8_t config_index);
-static uint8_t cdc_acm_deinit (usb_dev *udev, uint8_t config_index);
-static uint8_t cdc_acm_req    (usb_dev *udev, usb_req *req);
-static uint8_t cdc_ctlx_out   (usb_dev *udev);
-static uint8_t cdc_acm_in     (usb_dev *udev, uint8_t ep_num);
-static uint8_t cdc_acm_out    (usb_dev *udev, uint8_t ep_num);
-
-/* USB CDC device class callbacks structure */
-usb_class_core cdc_class =
-{
-    .command   = NO_CMD,
-    .alter_set = 0U,
-
-    .init      = cdc_acm_init,
-    .deinit    = cdc_acm_deinit,
-
-    .req_proc  = cdc_acm_req,
-    .ctlx_out  = cdc_ctlx_out,
-    .data_in   = cdc_acm_in,
-    .data_out  = cdc_acm_out
+static uint8_t cmd_buffer[32]; 
+enum {
+	EVT_DATA_OUT = 1,
+	EVT_DATA_IN  = 2
 };
+static void cdc_user_notify(uint8_t,int);
 #if 0
 /*!
     \brief      check CDC ACM is ready for data transfer
@@ -476,12 +463,12 @@ void cdc_acm_data_send (usb_dev *udev)
 {
     usb_cdc_handler *cdc = (usb_cdc_handler *)udev->dev.class_data[CDC_COM_INTERFACE];
 
-    if (0U != cdc->receive_length) {
+    if (0U != cdc->data_length) {
         cdc->packet_sent = 0U;
 
-        usbd_ep_send (udev, CDC_DATA_IN_EP, (uint8_t*)(cdc->data), cdc->receive_length);
+        usbd_ep_send (udev, CDC_DATA_IN_EP, (uint8_t*)(cdc->data), cdc->data_length);
 
-        cdc->receive_length = 0U;
+        cdc->data_length = 0U;
     }
 }
 
@@ -501,6 +488,7 @@ void cdc_acm_data_receive (usb_dev *udev)
     usbd_ep_recev(udev, CDC_DATA_OUT_EP, (uint8_t*)(cdc->data), USB_CDC_DATA_PACKET_SIZE);
 }
 #endif
+
 /*!
     \brief      initialize the CDC ACM device
     \param[in]  udev: pointer to USB device instance
@@ -532,7 +520,10 @@ static uint8_t cdc_acm_init (usb_dev *udev, uint8_t config_index)
     /* initialize CDC handler structure */
     cdc_handler.packet_receive = 1U;
     cdc_handler.packet_sent = 1U;
-    cdc_handler.receive_length = 0U;
+    cdc_handler.data_length = 0U;
+    cdc_handler.resp_length = 0U;
+	cdc_handler.cmd = cmd_buffer;
+	cdc_handler.resp = cmd_buffer;
 
     cdc_handler.line_coding = (acm_line){
         .dwDTERate   = 115200,
@@ -571,26 +562,36 @@ static uint8_t cdc_acm_deinit (usb_dev *udev, uint8_t config_index)
     \param[in]  req: device class-specific request
     \param[out] none
     \retval     USB device operation status
+	
+	
+	Два раза входим: один раз вызывается cdc_acm_req, 
+	затем при завершении транзакции вызывается cdc_ctlx_out
 */
 static uint8_t cdc_acm_req (usb_dev *udev, usb_req *req)
 {
     usb_cdc_handler *cdc = (usb_cdc_handler *)udev->dev.class_data[CDC_COM_INTERFACE];
-
     usb_transc *transc = NULL;
-
     switch (req->bRequest) {
-    case SEND_ENCAPSULATED_COMMAND:// Notification 
+    case SEND_ENCAPSULATED_COMMAND:
+		cdc->req = *req;
         transc = &udev->dev.transc_out[0];
-		debug("CDC:send enc cmd\r\n");
+		//debug("CDC:send enc cmd\r\n");
         /* set the value of the current command to be processed */
-        udev->dev.class_core->alter_set = req->bRequest;
+        udev->dev.class_core->command = req->bRequest;
 
         /* enable EP0 prepare to receive command data packet */
         transc->remain_len = req->wLength;
         transc->xfer_buf = cdc->cmd;
+		transc->xfer_count=0;
         break;
 
     case GET_ENCAPSULATED_RESPONSE:
+		//debug("CDC:get enc resp\r\n");
+		transc = &udev->dev.transc_in[0];
+		transc->xfer_buf = cdc->resp;// -- надо подменять буфер на операции send_recv()
+		transc->remain_len = cdc->resp_length;// та же переменная
+		transc->xfer_count=0;
+		cdc->resp_length = 0;
         /* no operation for this driver */
         break;
 
@@ -607,44 +608,47 @@ static uint8_t cdc_acm_req (usb_dev *udev, usb_req *req)
         break;
 
     case SET_LINE_CODING:
-	debug("CDC:Line Coding\r\n");
+	//debug("CDC:Line Coding\r\n");
         transc = &udev->dev.transc_out[0];
         
         /* set the value of the current command to be processed */
-        udev->dev.class_core->alter_set = req->bRequest;
+        udev->dev.class_core->command = req->bRequest;
 
         /* enable EP0 prepare to receive command data packet */
         transc->remain_len = req->wLength;
         transc->xfer_buf = cdc->cmd;
+		transc->xfer_count=0;
         break;
 
-    case GET_LINE_CODING:
-	debug("CDC:Get Line Coding\r\n");
+    case GET_LINE_CODING: {
+	//debug("CDC:Get Line Coding\r\n");
         transc = &udev->dev.transc_in[0];
-        
+/*
         cdc->cmd[0] = (uint8_t)(cdc->line_coding.dwDTERate);
         cdc->cmd[1] = (uint8_t)(cdc->line_coding.dwDTERate >> 8);
         cdc->cmd[2] = (uint8_t)(cdc->line_coding.dwDTERate >> 16);
         cdc->cmd[3] = (uint8_t)(cdc->line_coding.dwDTERate >> 24);
         cdc->cmd[4] = cdc->line_coding.bCharFormat;
         cdc->cmd[5] = cdc->line_coding.bParityType;
-        cdc->cmd[6] = cdc->line_coding.bDataBits;
+        cdc->cmd[6] = cdc->line_coding.bDataBits;*/
 
-        transc->xfer_buf = cdc->cmd;
+        transc->xfer_buf = (uint8_t*)&cdc->line_coding;// [req->wIndex]
         transc->remain_len = 7U;
-        break;
+		transc->xfer_count=0;
+	} break;
 
     case SET_CONTROL_LINE_STATE:
         /* no operation for this driver */
         break;
 
-    case SEND_BREAK: if (1){
+    case SEND_BREAK: if (0){
 		static uint8_t s[32];
 		snprintf(s, 32, "USB:Break if=%d dur=%d ms\r\n", req->wIndex, req->wValue); // Duration of Break,  0xFFFF - включить и не ждать 
 		debug(s);
 	}
-		debug("CDC:Break\r\n");
+		if(0)debug("CDC:Break\r\n");
         /* no operation for this driver */
+		cdc_user_notify(0, EVT_DATA_OUT);
         break;
 
     default:
@@ -664,12 +668,14 @@ static uint8_t cdc_ctlx_out (usb_dev *udev)
 {
     usb_cdc_handler *cdc = (usb_cdc_handler *)udev->dev.class_data[CDC_COM_INTERFACE];
 
-    switch (udev->dev.class_core->alter_set) {
+    switch (udev->dev.class_core->command) {
         /* process the command data */
 	case SEND_ENCAPSULATED_COMMAND:
+		cdc_user_notify(0, EVT_DATA_OUT);
 		//printf("", cmd);
 		break;
 	case SET_LINE_CODING:
+		cdc_user_notify(0, EVT_DATA_OUT);
         cdc->line_coding.dwDTERate = (uint32_t)((uint32_t)cdc->cmd[0] | 
                                                ((uint32_t)cdc->cmd[1] << 8U) | 
                                                ((uint32_t)cdc->cmd[2] << 16U) | 
@@ -680,7 +686,7 @@ static uint8_t cdc_ctlx_out (usb_dev *udev)
 		break;
 	default: break;
     }
-    udev->dev.class_core->alter_set = NO_CMD;
+    udev->dev.class_core->command = NO_CMD;
 
     return USBD_OK;
 }
@@ -707,13 +713,24 @@ static uint8_t cdc_acm_in (usb_dev *udev, uint8_t ep_num)
     return USBD_OK;
 }
 #include <cmsis_os.h>
-static osThreadId usbd_owner=NULL;
-static int32_t usbd_flag;
-void cdc_acm_open(int32_t flag)
+static osThreadId usbd_owner[8]={NULL};
+static int32_t usbd_flags[8];
+void cdc_acm_open(uint8_t ep_num, int32_t flag)
 {
-	usbd_flag = flag;
-	usbd_owner = osThreadGetId();
+	ep_num = EP_ID(ep_num);
+	usbd_flags[ep_num] = flag;
+	usbd_owner[ep_num] = osThreadGetId();
 }
+static void cdc_user_notify(uint8_t ep_num, int flag)
+{
+	ep_num = EP_ID(ep_num);
+	osThreadId owner = usbd_owner[ep_num];
+	if (owner) {// владелец транспорта Control
+		osSignalSet(owner, flag<<usbd_flags[ep_num]);
+		osThreadNotify(owner);
+	}
+}
+
 /*!
     \brief      handle CDC ACM data
     \param[in]  udev: pointer to USB device instance
@@ -726,10 +743,22 @@ static uint8_t cdc_acm_out (usb_dev *udev, uint8_t ep_num)
     usb_cdc_handler *cdc = (usb_cdc_handler *)udev->dev.class_data[CDC_COM_INTERFACE];
 
     cdc->packet_receive = 1U;
-    cdc->receive_length = ((usb_core_driver *)udev)->dev.transc_out[ep_num].xfer_count;
-	if (usbd_owner) {
-		osSignalSet(usbd_owner, 1UL<<usbd_flag);
-		osThreadNotify(usbd_owner);
-	}
+    cdc->data_length = ((usb_core_driver *)udev)->dev.transc_out[ep_num].xfer_count;
+	//debug("$");
+	cdc_user_notify(ep_num, EVT_DATA_OUT);
     return USBD_OK;
 }
+/* USB CDC device class callbacks structure */
+usb_class_core cdc_class =
+{
+    .command   = NO_CMD,
+    .alter_set = 0U,
+
+    .init      = cdc_acm_init,
+    .deinit    = cdc_acm_deinit,
+
+    .req_proc  = cdc_acm_req,
+    .ctlx_out  = cdc_ctlx_out,
+    .data_in   = cdc_acm_in,
+    .data_out  = cdc_acm_out
+};

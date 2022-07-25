@@ -166,7 +166,6 @@ SRC += \
 endif
 # Операционная система
 #	r3core/mem_block.c
-#	r3core/r3_slice.c
 #	r3core/r3rtc.c
 #	r3core/timer.c
 #	r3core/rtc.c 
@@ -188,6 +187,7 @@ SRC += \
 	r3core/r3_slice.c \
 	r3core/r3_stdlib_memcpy.c \
 	r3core/r3_stdlib_memset.c \
+	r3core/r3_stdlib_memcmp.c \
 	r3core/r3_stdlib.c
 #	r3core/r3_stdlib_strchr.c 
 #	r3core/r3_stdlib_strcmp.c 
@@ -196,15 +196,14 @@ SRC += \
 #	r3core/r3_stdlib_strncpy.c 
 #	r3core/r3_stdlib_strncat.c
 #	r3core/r3_stdlib_memmove.c 
-#	r3core/r3_stdlib_memcmp.c 
 #	r3core/r3_stdlib_utf8.c 
 #	r3core/c11_mutex.c
 #	r3core/c11_cond.c
+#	r3core/c11_tss.c 
 #	r3core/bsearch.c 
 
 #	r3core/r3_object.c 
 #	r3core/r3_asn.c
-#	r3core/c11_tss.c 
 
 SRC += \
 	r3core/kernel.c \
@@ -214,16 +213,9 @@ SRC += \
 	r3core/timer.c \
 	r3core/malloc.c \
 	r3core/main.c \
-	r3core/service.c
-
-ifdef USE_R3CODE
-SRC += \
 	r3core/crc16.c \
-	r3core/config.c
-endif
-
-
-
+	r3core/config.c \
+	r3core/service.c
 
 ifdef BACNET_SERVER
 SRC += \

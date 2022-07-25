@@ -15,7 +15,6 @@ ARCH  = CORTEXM4F
 USE_USBFS=1
 USE_CMSIS_DAP=1
 ifdef USE_CMSIS_DAP
-#	dap/SWO.c
 SRC+= \
 	dap/DAP.c \
 	dap/SW_DP.c \
@@ -35,10 +34,18 @@ SRC+= \
 	usbfs/cdc_acm_core.c
 endif
 
-#  	device/$(DEVICE)/usbd_hw.c 
+#	bitmain_pic.c 
+
+#	hal/$(CHIP)/usart_rs485.c 
 SRC+= \
-	hal/$(CHIP)/usart_rs485.c \
 	hal/$(CHIP)/i2c_master.c \
 	r3core/tracer_itm.c \
+	r3core/config.c \
+	r3core/r3cmd.c \
+	r3core/r3cmd_trace.c \
+	r3core/r3cmd_flash.c \
+	r3core/crc16.c \
+	bitmain_pic_host.c \
 	crc5.c \
+	i2c_env.c \
 	device/$(DEVICE)/main.c 

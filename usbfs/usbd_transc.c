@@ -36,56 +36,12 @@ OF SUCH DAMAGE.
 #include <stdio.h>
 #include "usbd_enum.h"
 #include "usbd_transc.h"
-/* USB send data in the control transaction */
-static usbd_status usbd_ctl_send (usb_core_driver *udev);
-/* USB receive data in control transaction */
-static usbd_status usbd_ctl_recev (usb_core_driver *udev);
+
 /* USB send control transaction status */
 static usbd_status usbd_ctl_status_send (usb_core_driver *udev);
 /* USB control receive status */
 static usbd_status usbd_ctl_status_recev (usb_core_driver *udev);
 
-/*!
-    \brief      USB send data in the control transaction
-    \param[in]  udev: pointer to USB device instance
-    \param[out] none
-    \retval     USB device operation cur_status
-*/
-static usbd_status usbd_ctl_send (usb_core_driver *udev)
-{
-    usb_transc *transc = &udev->dev.transc_in[0];
-
-    (void)usbd_ep_send(udev, 0U, transc->xfer_buf, transc->remain_len);
-
-    if (transc->remain_len > transc->max_len) {
-        udev->dev.control.ctl_state = (uint8_t)USB_CTL_DATA_IN;
-    } else {
-        udev->dev.control.ctl_state = (uint8_t)USB_CTL_LAST_DATA_IN;
-    }
-
-    return USBD_OK;
-}
-
-/*!
-    \brief      USB receive data in control transaction
-    \param[in]  udev: pointer to USB device instance
-    \param[out] none
-    \retval     USB device operation cur_status
-*/
-static usbd_status usbd_ctl_recev (usb_core_driver *udev)
-{
-    usb_transc *transc = &udev->dev.transc_out[0];
-
-    (void)usbd_ep_recev (udev, 0U, transc->xfer_buf, transc->remain_len);
-
-    if (transc->remain_len > transc->max_len) {
-        udev->dev.control.ctl_state = (uint8_t)USB_CTL_DATA_OUT;
-    } else {
-        udev->dev.control.ctl_state = (uint8_t)USB_CTL_LAST_DATA_OUT;
-    }
-
-    return USBD_OK;
-}
 
 /*!
     \brief      USB send control transaction status
@@ -120,6 +76,9 @@ static usbd_status usbd_ctl_status_recev (usb_core_driver *udev)
 
     return USBD_OK;
 }
+//kprintf(const char* fmt) 
+
+static  char s[32];
 
 /*!
     \brief      USB setup stage processing
@@ -142,13 +101,13 @@ uint8_t usbd_setup_transc (usb_core_driver *udev)
     /* device class request */
     case USB_REQTYPE_CLASS:
         reqstat = usbd_class_request (udev, &req);
-		debug("Cr.");
+		if(0)debug("Cr.");
         break;
 
     /* vendor defined request */
     case USB_REQTYPE_VENDOR:
         reqstat = usbd_vendor_request (udev, &req);
-		debug("Vr.");
+		if(0)debug("Vr.");
         break;
 
     default:
@@ -156,18 +115,51 @@ uint8_t usbd_setup_transc (usb_core_driver *udev)
     }
 
     if (REQ_SUPP == reqstat) {
-        if (0U == req.wLength) {
-            (void)usbd_ctl_status_send (udev);
+        if (0U == req.wLength) {// status send
+			usb_transc *transc = &udev->dev.transc_in[0];
+			udev->dev.control.ctl_state = (uint8_t)USB_CTL_STATUS_IN;
+			transc->xfer_buf = NULL;
+			transc->xfer_len = 0;
+			transc->xfer_count = 0U;
+			/* start the transfer */
+			(void)usb_transc_inxfer (udev, transc);
+			usb_ctlep_startout(udev);
         } else {
             if (req.bmRequestType & 0x80U) {
-                (void)usbd_ctl_send (udev);
+				usb_transc *transc = &udev->dev.transc_in[0];
+				transc->xfer_len = transc->remain_len;
+				transc->xfer_count = 0U;
+				/* start the transfer */
+				(void)usb_transc_inxfer (udev, transc);
+				if (transc->remain_len > transc->max_len) {
+					udev->dev.control.ctl_state = (uint8_t)USB_CTL_DATA_IN;
+				} else
+				{
+					udev->dev.control.ctl_state = (uint8_t)USB_CTL_LAST_DATA_IN;
+				}
             } else {
-                (void)usbd_ctl_recev (udev);
+				usb_transc *transc = &udev->dev.transc_out[0];
+				transc->xfer_len = transc->remain_len;
+				transc->xfer_count = 0U;
+				/* start the transfer */
+				usb_transc_outxfer (udev, transc);
+				if (transc->remain_len > transc->max_len) {
+					udev->dev.control.ctl_state = (uint8_t)USB_CTL_DATA_OUT;
+				} else {
+					udev->dev.control.ctl_state = (uint8_t)USB_CTL_LAST_DATA_OUT;
+				}
             }
         }
-    } else {
+    } else if (REQ_NOTSUPP == reqstat) {
         usbd_enum_error (udev, &req);
-    }
+		if(0){
+			snprintf(s, 32, "NSUP%02X %02X ", (req.bmRequestType & USB_REQTYPE_MASK), req.bRequest);
+			debug(s);
+		}
+
+    } else {
+		// Сюда наши попали
+	}
 
     return (uint8_t)USBD_OK;
 }
@@ -186,16 +178,13 @@ uint8_t usbd_out_transc (usb_core_driver *udev, uint8_t ep_num)
 
         switch (udev->dev.control.ctl_state) {
         case USB_CTL_DATA_OUT:
-            /* update transfer length */
             transc->remain_len -= transc->max_len;
-#if 0
-            if ((uint8_t)USB_USE_DMA == udev->bp.transfer_mode) {
-                transc->xfer_buf += transc->max_len;
-            }
-#endif
-            (void)usbd_ctl_recev (udev);
+			transc->xfer_len = transc->remain_len;
+			transc->xfer_count = 0U;// тут может иначе надо??
+			usb_transc_outxfer (udev, transc);
+			if (transc->remain_len <= transc->max_len)
+				udev->dev.control.ctl_state = (uint8_t)USB_CTL_LAST_DATA_OUT;
             break;
-
         case USB_CTL_LAST_DATA_OUT:
             if (udev->dev.cur_status == (uint8_t)USBD_CONFIGURED) {
                 if (udev->dev.class_core->ctlx_out != NULL) {
@@ -205,8 +194,9 @@ uint8_t usbd_out_transc (usb_core_driver *udev, uint8_t ep_num)
             }
 
             transc->remain_len = 0U;
-
-            (void)usbd_ctl_status_send (udev);
+			udev->dev.control.ctl_state = (uint8_t)USB_CTL_STATUS_IN;
+			(void)usbd_ep_send (udev, 0U, NULL, 0U);
+			usb_ctlep_startout(udev);
             break;
 
         default:
@@ -220,7 +210,6 @@ uint8_t usbd_out_transc (usb_core_driver *udev, uint8_t ep_num)
 
     return (uint8_t)USBD_OK;
 }
-
 /*!
     \brief      data in stage processing
     \param[in]  udev: pointer to USB device instance
@@ -242,13 +231,19 @@ uint8_t usbd_in_transc (usb_core_driver *udev, uint8_t ep_num)
                 transc->xfer_buf += transc->max_len;
             }
 #endif
-//kprintf(const char* fmt) {
-//	
-//  char s[32];
-//	snprintf(s, 32, fmt, transc->remain_len);
-//	debug(s);
-//}
-            (void)usbd_ctl_send (udev);
+			/* setup the transfer */
+			transc->xfer_len = transc->remain_len;
+			transc->xfer_count = 0U;
+#if 0
+			if ((uint8_t)USB_USE_DMA == udev->bp.transfer_mode) {
+				transc->dma_addr = (uint32_t)transc->xfer_buf;
+			}
+#endif
+			/* start the transfer */
+			(void)usb_transc_inxfer (udev, transc);
+//			(void)usbd_ep_send(udev, 0U, transc->xfer_buf, transc->remain_len);// это плохо, внутри происходит копирование transc->xfer_buf
+			if (transc->remain_len <= transc->max_len)
+				udev->dev.control.ctl_state = (uint8_t)USB_CTL_LAST_DATA_IN;
             break;
 
         case USB_CTL_LAST_DATA_IN:
@@ -264,14 +259,17 @@ uint8_t usbd_in_transc (usb_core_driver *udev, uint8_t ep_num)
                 }
 
                 transc->remain_len = 0U;
-                (void)usbd_ctl_status_recev (udev);
+				udev->dev.control.ctl_state = (uint8_t)USB_CTL_STATUS_OUT;
+				(void)usbd_ep_recev (udev, 0U, NULL, 0U);
+				usb_ctlep_startout(udev);
             }
             break;
 
         default:
             break;
         }
-    } else {
+    } else 
+	{
         if ((udev->dev.cur_status == (uint8_t)USBD_CONFIGURED) && (udev->dev.class_core->data_in != NULL)) {
             (void)udev->dev.class_core->data_in (udev, ep_num);
         }

@@ -393,7 +393,7 @@ static usb_reqsta _usb_std_clearfeature (usb_core_driver *udev, usb_req *req)
             if (((uint16_t)USB_FEATURE_EP_HALT == req->wValue) && (!CTL_EP(ep))) {
                 (void)usbd_ep_stall_clear (udev, ep);
 
-                (void)udev->dev.class_core->req_proc (udev, req);
+                (void)udev->dev.class_core->req_proc (udev, req);// std_clear_feature
             }
 
             return REQ_SUPP;
@@ -535,7 +535,9 @@ static usb_reqsta _usb_std_getdescriptor (usb_core_driver *udev, usb_req *req)
 
         case USB_DESCTYPE_ITF:
         case USB_DESCTYPE_EP:
+			break;
         case USB_DESCTYPE_DEV_QUALIFIER:
+			break;
         case USB_DESCTYPE_OTHER_SPD_CONFIG:
         case USB_DESCTYPE_ITF_POWER:
             break;
@@ -565,15 +567,19 @@ static usb_reqsta _usb_std_getdescriptor (usb_core_driver *udev, usb_req *req)
 
     if ((0U != transc->remain_len) && (0U != req->wLength)) {
         if (transc->remain_len < req->wLength) {
-            if ((transc->remain_len >= transc->max_len) && (0U == (transc->remain_len % transc->max_len))) {
-                udev->dev.control.ctl_zlp = 1U;
-            }
+			// перенес отсюда вниз
+			//if ((transc->remain_len >= transc->max_len) && (0U == (transc->remain_len % transc->max_len))) 
+			if ((transc->remain_len & (transc->max_len-1))==0U){
+				udev->dev.control.ctl_zlp = 1U;
+			}
         } else {
             transc->remain_len = req->wLength;
         }
 
         status = REQ_SUPP;
-    }
+    } else {
+		
+	}
 
     return status;
 }
@@ -744,6 +750,7 @@ static usb_reqsta _usb_std_setinterface (usb_core_driver *udev, usb_req *req)
 
     case USBD_CONFIGURED:
         if (BYTE_LOW(req->wIndex) <= USBD_ITF_MAX_NUM) {
+			// udev->dev.class_core->alter_set = BYTE_LOW(req->wIndex); -- уточнить в каком поле передается интерфейс
             if (NULL != udev->dev.class_core->set_intf) {
                 (void)udev->dev.class_core->set_intf (udev, req);
             }

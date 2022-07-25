@@ -44,16 +44,18 @@ OF SUCH DAMAGE.
 typedef struct {
     uint8_t packet_sent;
     uint8_t packet_receive;
+    //uint8_t data[USB_CDC_RX_LEN];
+    uint8_t *cmd;//[USB_CDC_CMD_PACKET_SIZE];
+	uint8_t *resp;
 
-    uint8_t data[USB_CDC_RX_LEN];
-    uint8_t cmd[USB_CDC_CMD_PACKET_SIZE];
+    uint32_t data_length;
+    uint32_t resp_length;
 
-    uint32_t receive_length;
-
+	usb_req req;
     acm_line line_coding;
 } usb_cdc_handler;
 
-extern usb_desc cdc_desc;
+extern const usb_desc cdc_desc;
 extern usb_class_core cdc_class;
 
 /* function declarations */

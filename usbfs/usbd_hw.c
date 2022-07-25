@@ -8,12 +8,16 @@
 #include "cdc_acm_core.h"
 
 usb_core_driver cdc_acm;
-static osThreadId owner[USBD_ITF_MAX_NUM];
-static int32_t flag[USBD_ITF_MAX_NUM];
+//static osThreadId owner[USBD_ITF_MAX_NUM];
+//static int32_t flag[USBD_ITF_MAX_NUM];
 void usb_open(int32_t itf, int32_t flag_idx)
 {
-	flag[itf] = flag_idx;
-	owner[itf] = osThreadGetId();
+extern void cdc_acm_open(uint8_t itf, int32_t flag);
+	cdc_acm_open(itf, flag_idx);
+
+	//flag[itf] = flag_idx;
+	//owner[itf] = osThreadGetId();
+if (itf==0) {// do_once
 #ifdef USE_IRC48M
 	RCU_ADDCTL |= RCU_ADDCTL_IRC48MEN;/* enable IRC48M clock */
 	while ((RCU_ADDCTL & RCU_ADDCTL_IRC48MSTB)==0);/* wait till IRC48M is ready */
@@ -41,29 +45,61 @@ void usb_open(int32_t itf, int32_t flag_idx)
 	usbd_init (&cdc_acm, USB_CORE_ENUM_FS, &cdc_desc, &cdc_class);
 	NVIC_SetPriority(USBFS_IRQn, (1<<(__NVIC_PRIO_BITS-1)));
 	NVIC_EnableIRQ(USBFS_IRQn);
-extern void cdc_acm_open(int32_t flag);
-	cdc_acm_open(flag_idx);
+}
 	//puts("USB:done\r\n");
 }
 int usb_is_configured()
 {
 	return  (USBD_CONFIGURED == cdc_acm.dev.cur_status);
 }
-int usb_recv(uint8_t* data, size_t len){
-	
-	uint8_t ep_num  = CDC_DATA_OUT_EP;
-	len = ((usb_core_driver *)&cdc_acm)->dev.transc_out[ep_num].xfer_count;
-	usbd_ep_recev(&cdc_acm, CDC_DATA_OUT_EP, data, USB_CDC_DATA_PACKET_SIZE);
-	return len;
+/*! \brief управление по выбранному интерфейсу */
+int usb_ctrl(int itf, int options, void* req){
+	usb_core_driver *udev = &cdc_acm;
+	int res = 0;
+	switch (options & 0xF){
+	case 0: {// _GET_REQUEST
+		usb_cdc_handler *cdc = (usb_cdc_handler *)udev->dev.class_data[CDC_COM_INTERFACE];
+		
+		if (req){
+			*(usb_req*)req = cdc->req;
+			res = cdc->req.wLength;
+		}
+	}	break;
+	case 1: {// _RECV_BUFFER
+		usb_cdc_handler *cdc = (usb_cdc_handler *)udev->dev.class_data[CDC_COM_INTERFACE];
+		cdc->cmd = req;
+		res = cdc->data_length;// atomic_exchange??
+		cdc->data_length = 0;
+	}	break;
+	case 2: {// _SEND_BUFFER
+		usb_cdc_handler *cdc = (usb_cdc_handler *)udev->dev.class_data[CDC_COM_INTERFACE];
+		cdc->resp = req;
+		cdc->resp_length = options>>8;
+	}	break;
+	default: 
+		res = -1;
+		break;
+	}
+	return res;
 }
+/*! \brief отослать по выбранному интерфейсу */
+int usb_recv(int itf, uint8_t* data, size_t len){
+	// \todo мапить интерфейс и едндпоинты
+	uint8_t ep_num  = itf;//CDC_DATA_OUT_EP;
+//	len = ((usb_core_driver *)&cdc_acm)->dev.transc_out[ep_num].xfer_count; -- вынес в функцию usbd_ep_recev
+	return usbd_ep_recev(&cdc_acm, ep_num, data, USB_CDC_DATA_PACKET_SIZE);
+}
+/*
 int usb_send_recv(uint8_t* data, size_t *len){
 	// установить буфер
 	usbd_ep_recev(&cdc_acm, CDC_DATA_OUT_EP, data, USB_CDC_DATA_PACKET_SIZE);
 	// установить максимальный размер данных на приеме
 	return 0;
-}
-int usb_send(uint8_t* data, size_t len) {
-	return usbd_ep_send (&cdc_acm, CDC_DATA_IN_EP, data, len);
+}*/
+int usb_send(int itf, uint8_t* data, size_t len) {
+	// \todo мапить интерфейс и едндпоинты
+	uint8_t ep_num  = itf | 0x80;//CDC_DATA_IN_EP;
+	return usbd_ep_send (&cdc_acm, ep_num, data, len);
 /*
 	if (0U == cdc_acm_check_ready(&cdc_acm)) {
 		cdc_acm_data_receive(&cdc_acm);

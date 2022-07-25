@@ -181,6 +181,19 @@ typedef struct _usb_desc_header {
     uint8_t bLength;                      /*!< size of the descriptor */
     uint8_t bDescriptorType;              /*!< type of the descriptor */
 } usb_desc_header;
+/*! \note If a full-speed only device (with a device descriptor version number equal to 0200H) receives a
+GetDescriptor() request for a device_qualifier, it must respond with a request error. */
+typedef struct _usb_desc_dev_qualifier {
+    usb_desc_header header;               /*!< descriptor header, including type and size */
+
+    uint16_t bcdUSB;                      /*!< BCD of the supported USB specification */
+    uint8_t  bDeviceClass;                /*!< USB device class */
+    uint8_t  bDeviceSubClass;             /*!< USB device subclass */
+    uint8_t  bDeviceProtocol;             /*!< USB device protocol */
+    uint8_t  bMaxPacketSize0;             /*!< size of the control (address 0) endpoint's bank in bytes */
+    uint8_t  bNumberConfigurations;       /*!< total number of configurations supported by the device */
+	uint8_t	 bReserved;					  /*!< Reserved for future use, must be zero */
+} usb_desc_dev_qualifier;
 
 typedef struct _usb_desc_dev {
     usb_desc_header header;               /*!< descriptor header, including type and size */

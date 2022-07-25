@@ -251,13 +251,15 @@ void SystemInit (void)
     while(0U == (AFIO_CPSCTL & AFIO_CPSCTL_CPS_RDY)){
     }
 
-//  SetSysClock();
+//	SetSysClock();
 // это требует инициализации 
 	PIO_Configure(pins, PIO_LISTSIZE(pins));
-	ITM_init();
-/*
+/*	ITM_init();
+
 	while (1){
-		ITM->PORT[0].u8 = '+';
+		volatile int count = 0x7FFFFF*(8)/120;
+		while (count--)__NOP();
+		ITM->PORT[0].u8 = '#';
 	} */
   //	AFIO->MAPR = BOARD_REMAP;
 // Выполнить процедуру переназначения переферии на порты ввода/вывода

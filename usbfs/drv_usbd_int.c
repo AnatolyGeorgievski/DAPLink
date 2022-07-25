@@ -70,6 +70,7 @@ void usbd_isr (usb_core_driver *udev)
 
         /* OUT endpoints interrupts */
         if (intr & GINTF_OEPIF) {
+//debug("O");
             (void)usbd_int_epout (udev);
         }
 
@@ -104,7 +105,6 @@ void usbd_isr (usb_core_driver *udev)
 
         /* receive FIFO not empty interrupt */
         if (intr & GINTF_RXFNEIF) {
-
             (void)usbd_int_rxfifo (udev);
 			intr = udev->regs.gr->GINTF;
         }
@@ -221,7 +221,7 @@ static uint32_t usbd_int_epout (usb_core_driver *udev)
 */
 static uint32_t usbd_int_epin (usb_core_driver *udev)
 {
-    uint32_t epintnum = usb_iepintnum_read (udev);
+    uint32_t epintnum = usb_iepintnum_read (udev);// маска ендпоинтов для которых есть флаги
 	
     //for (epintnum = usb_iepintnum_read (udev); epintnum; epintnum >>= 1, ep_num++) 
 	if (epintnum) do {
@@ -291,6 +291,7 @@ static uint32_t usbd_int_rxfifo (usb_core_driver *udev)
     case RSTAT_DATA_UPDT:
         if (bcount > 0U) {
             (void)usb_rxfifo_read (&udev->regs, transc->xfer_buf, (uint16_t)bcount);
+
             transc->xfer_buf += bcount;// Когда буфер обновляется??
             transc->xfer_count += bcount;
         } else {
@@ -307,7 +308,7 @@ static uint32_t usbd_int_rxfifo (usb_core_driver *udev)
         break;
 
     case RSTAT_SETUP_UPDT:
-        if ((0U == transc->ep_addr.num) && (8U == bcount) && (DPID_DATA0 == data_PID)) {
+        if ((0U == EP_ID(transc->ep_addr)) && (8U == bcount) && (DPID_DATA0 == data_PID)) {
             /* copy the setup packet received in FIFO into the setup buffer in RAM */
             (void)usb_rxfifo_read (&udev->regs, (uint8_t *)&udev->dev.control.req, (uint16_t)bcount);
 
@@ -367,23 +368,19 @@ static uint32_t usbd_int_reset (usb_core_driver *udev)
 
     /* clear USB reset interrupt */
     udev->regs.gr->GINTF = GINTF_RST;
-
+	/* init control endpoints */
     udev->dev.transc_out[0] = (usb_transc) {
+		.ep_addr = 0x00,
+        .ep_type = USB_EPTYPE_CTRL,
+        .max_len = USB_FS_EP0_MAX_LEN
+    };
+    udev->dev.transc_in[0] = (usb_transc) {
+        .ep_addr = 0x80,
         .ep_type = USB_EPTYPE_CTRL,
         .max_len = USB_FS_EP0_MAX_LEN
     };
 
     (void)usb_transc_active (udev, &udev->dev.transc_out[0]);
-
-    udev->dev.transc_in[0] = (usb_transc) {
-        .ep_addr = {
-            .dir = 1U
-        },
-
-        .ep_type = USB_EPTYPE_CTRL,
-        .max_len = USB_FS_EP0_MAX_LEN
-    };
-
     (void)usb_transc_active (udev, &udev->dev.transc_in[0]);
 
     /* upon reset call user call back */
