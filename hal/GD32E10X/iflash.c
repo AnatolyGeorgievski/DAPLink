@@ -264,17 +264,17 @@ void FMC_IRQHandler(void)
 	if ((FMC_STAT & FMC_STAT_WPERR)!=0) {/* защита от записи */
 		FMC_STAT |= FMC_STAT_WPERR;
 		iflash->status = ERR_FLASH_WRP;
-		printf("FLASH ERR-WRP\r\n");
+		//printf("FLASH ERR-WRP\r\n");
 	} else
 	if ((FMC_STAT & FMC_STAT_PGERR)!=0) {/* ошибка программирования, когда содержимое памяти не равно 0xFFFF */
 		FMC_STAT |= FMC_STAT_PGERR;
 		iflash->status = ERR_FLASH_PAGE;
-		printf("FLASH ERR-PG\r\n");
+		//printf("FLASH ERR-PG\r\n");
 	} else
 	if ((FMC_STAT & FMC_STAT_PGAERR)!=0) {// ошибка выравнивания памяти
 		FMC_STAT |= FMC_STAT_PGAERR;
 		iflash->status = ERR_FLASH_ALIGN;
-		printf("FLASH ERR-ALIGN\r\n");
+		//printf("FLASH ERR-ALIGN\r\n");
 	}
 		
 }

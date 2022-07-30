@@ -36,9 +36,9 @@ endif
 
 #	bitmain_pic.c 
 
-#	hal/$(CHIP)/usart_rs485.c 
 SRC+= \
 	hal/$(CHIP)/i2c_master.c \
+	hal/$(CHIP)/usart_rs485.c \
 	r3core/tracer_itm.c \
 	r3core/config.c \
 	r3core/r3cmd.c \

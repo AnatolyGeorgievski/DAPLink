@@ -156,6 +156,9 @@ static inline void r3_sys_ident()
 	//printf("CONTROL: 0x%08X\r\n", __get_CONTROL());
 	printf("%s DevId: 0x%03x, RevId: 0x%04x, Flash: %dkB\r\n", str, dev_id, rev_id, flash_size);
 	printf("UniqueID: 0x%08X %08X %08X\r\n", (unsigned int)UniqueID[2], (unsigned int)UniqueID[1], (unsigned int)UniqueID[0]);
+	
+//	uint32_t *MPU_TYPE = (uint32_t*) 0xE000ED90U;
+//	printf("MPU dregions=%d\n",(*MPU_TYPE>>4)&0xF);
 }
 /*! \brief идентификация типа загрузки и причины перезагрузки 
 */
@@ -183,9 +186,9 @@ static inline void r3_reset_ident()
 	} else {
 		str = "undefined";
 	}
-	printf("%s reset\r\n", str);
+	printf("%s reset 0x%08X\r\n", str, reset_type);
 	// очистить признак
-	RCU_RSTSCK |= RCU_RSTSCK_RSTFC;
+	//RCU_RSTSCK |= RCU_RSTSCK_RSTFC;
 }
 static inline int sys_serial_number(char* serial, int n)
 {

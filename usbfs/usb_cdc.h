@@ -125,6 +125,7 @@ enum usb_cdc_subclass {
 };
 #ifndef CDC_SUB_ITF_COUNT
 #define CDC_SUB_ITF_COUNT 1
+#error "Please define CDC sub interface count"
 #endif
 
 #pragma pack(1)

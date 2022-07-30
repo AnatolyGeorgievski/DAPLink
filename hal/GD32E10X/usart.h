@@ -18,6 +18,10 @@ typedef struct _DataUnit osTransfer;
 // вместе образуют API драйвера
 void* usart_open(uint32_t uart_id, int32_t flag);
 void  usart_send(void* h, void* data, uint16_t size);
+void* usart_dma_init(void* vh, int32_t flag);
+void  usart_dma_send(void* vh, void* data, uint16_t size);
+void  usart_dma_recv(void* vh, void* data, uint16_t size);
+int   usart_dma_length(void* vh);
 osTransfer* usart_recv(void* h, void* data, uint16_t size);
 void  usart_close(void* h);
 uint16_t usart_status(void* h);// есть такой вариант представления ошибки

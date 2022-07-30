@@ -7,12 +7,20 @@ struct _Channel {
 //	uint16_t status;
 };
 static Channel_t Channels[7] = {NULL};
+static const uint8_t Channel_Irq[7] = {
+	DMA0_Channel0_IRQn,DMA0_Channel1_IRQn,DMA0_Channel2_IRQn,DMA0_Channel3_IRQn,
+	DMA0_Channel4_IRQn,DMA0_Channel5_IRQn,DMA0_Channel6_IRQn};
+	
 void DMA_open(uint32_t dmax, int32_t channel, int32_t flag){
 	Channels[channel].owner = osThreadGetId();
 	Channels[channel].flag  = flag;
+//	DMA_Channel_t* ch = DMA_channel(dmax, channel);
+//	DMA_channel_IT_enable(ch, DMA_CHXCTL_FTFIE);
+	NVIC_EnableIRQ(Channel_Irq[channel]);
 }
 static void DMA_IRQHandler(uint32_t dmax,/*DMA1_Channel1,*/ int channel)
 {// DMA_INTF DMA_INTC
+	dmax = DMA0;
     if (DMA_INTF(dmax) &  DMA_FLAG_ADD(DMA_INTF_FTFIF,  channel)){
 		DMA_INTC(dmax) |= DMA_FLAG_ADD(DMA_INTC_FTFIFC, channel);
         if (Channels[channel].owner) {
@@ -27,7 +35,6 @@ static void DMA_IRQHandler(uint32_t dmax,/*DMA1_Channel1,*/ int channel)
 			osThreadNotify(Channels[channel].owner);
 		}
     } 
-		
 }
 #if defined(BOARD_DMA0)
 static void __attribute__((constructor)) DMA0_init()

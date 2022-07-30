@@ -34,8 +34,8 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWIS
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY 
 OF SUCH DAMAGE.
 */
-#define CDC_SUB_ITF_COUNT 3
 //#define DEBUG_ITF
+#include "board.h"
 #include "cdc_acm_core.h"
 #include <cmsis_os.h>
 #include <stdio.h>
@@ -512,6 +512,7 @@ static uint8_t cdc_acm_init (usb_dev *udev, uint8_t config_index)
 		usbd_ep_setup (udev, &(cdc_config_desc.cdc_sub_interfaces[itf].cdc_in_endpoint));
 		/* initialize the data RX endpoint */
 		usbd_ep_setup (udev, &(cdc_config_desc.cdc_sub_interfaces[itf].cdc_out_endpoint));
+		cdc_handler.features[itf]=NULL;
 	}
 
     /* initialize the command TX endpoint */
@@ -572,6 +573,11 @@ static uint8_t cdc_acm_req (usb_dev *udev, usb_req *req)
     usb_cdc_handler *cdc = (usb_cdc_handler *)udev->dev.class_data[CDC_COM_INTERFACE];
     usb_transc *transc = NULL;
     switch (req->bRequest) {
+    case SEND_BREAK:
+    case SET_CONTROL_LINE_STATE:
+    case SET_COMM_FEATURE:
+    case CLEAR_COMM_FEATURE:
+    case SET_LINE_CODING:
     case SEND_ENCAPSULATED_COMMAND:
 		cdc->req = *req;
         transc = &udev->dev.transc_out[0];
@@ -583,6 +589,8 @@ static uint8_t cdc_acm_req (usb_dev *udev, usb_req *req)
         transc->remain_len = req->wLength;
         transc->xfer_buf = cdc->cmd;
 		transc->xfer_count=0;
+		if (req->wLength==0)// для нулевой длины запрос тоже нужен
+			cdc_user_notify(0, EVT_DATA_OUT);
         break;
 
     case GET_ENCAPSULATED_RESPONSE:
@@ -595,30 +603,19 @@ static uint8_t cdc_acm_req (usb_dev *udev, usb_req *req)
         /* no operation for this driver */
         break;
 
-    case SET_COMM_FEATURE:
+    case GET_COMM_FEATURE: {
         /* no operation for this driver */
-        break;
-
-    case GET_COMM_FEATURE:
-        /* no operation for this driver */
-        break;
-
-    case CLEAR_COMM_FEATURE:
-        /* no operation for this driver */
-        break;
-
-    case SET_LINE_CODING:
-	//debug("CDC:Line Coding\r\n");
-        transc = &udev->dev.transc_out[0];
-        
-        /* set the value of the current command to be processed */
-        udev->dev.class_core->command = req->bRequest;
-
-        /* enable EP0 prepare to receive command data packet */
-        transc->remain_len = req->wLength;
-        transc->xfer_buf = cdc->cmd;
-		transc->xfer_count=0;
-        break;
+		uint8_t itf = (req->wIndex)&0xFF;
+		if (0 < itf && (itf <= CDC_SUB_ITF_COUNT) && (cdc->features[itf-1]!=NULL) ) 
+		{// todo ограничить число фич /* req->wValue */
+			transc = &udev->dev.transc_in[0];
+			transc->xfer_buf = (uint8_t*)(cdc->features[itf-1]);
+			transc->remain_len = 2;//req->wLength;
+			transc->xfer_count=0;
+		} 
+			
+			
+	} break;
 
     case GET_LINE_CODING: {
 	//debug("CDC:Get Line Coding\r\n");
@@ -631,26 +628,13 @@ static uint8_t cdc_acm_req (usb_dev *udev, usb_req *req)
         cdc->cmd[4] = cdc->line_coding.bCharFormat;
         cdc->cmd[5] = cdc->line_coding.bParityType;
         cdc->cmd[6] = cdc->line_coding.bDataBits;*/
-
-        transc->xfer_buf = (uint8_t*)&cdc->line_coding;// [req->wIndex]
-        transc->remain_len = 7U;
-		transc->xfer_count=0;
+		uint8_t itf = req->wIndex & 0xFF;
+		if (/* 0<itf && */itf<=CDC_SUB_ITF_COUNT) {
+			transc->xfer_buf = (uint8_t*)&cdc->line_coding;// [req->wIndex]
+			transc->remain_len = 7U;// ограничить req->wLength? 
+			transc->xfer_count=0;
+		}
 	} break;
-
-    case SET_CONTROL_LINE_STATE:
-        /* no operation for this driver */
-        break;
-
-    case SEND_BREAK: if (0){
-		static uint8_t s[32];
-		snprintf(s, 32, "USB:Break if=%d dur=%d ms\r\n", req->wIndex, req->wValue); // Duration of Break,  0xFFFF - включить и не ждать 
-		debug(s);
-	}
-		if(0)debug("CDC:Break\r\n");
-        /* no operation for this driver */
-		cdc_user_notify(0, EVT_DATA_OUT);
-        break;
-
     default:
         break;
     }
@@ -670,12 +654,9 @@ static uint8_t cdc_ctlx_out (usb_dev *udev)
 
     switch (udev->dev.class_core->command) {
         /* process the command data */
-	case SEND_ENCAPSULATED_COMMAND:
-		cdc_user_notify(0, EVT_DATA_OUT);
 		//printf("", cmd);
 		break;
-	case SET_LINE_CODING:
-		cdc_user_notify(0, EVT_DATA_OUT);
+	case SET_LINE_CODING:// перенести в Юзер спейс
         cdc->line_coding.dwDTERate = (uint32_t)((uint32_t)cdc->cmd[0] | 
                                                ((uint32_t)cdc->cmd[1] << 8U) | 
                                                ((uint32_t)cdc->cmd[2] << 16U) | 
@@ -683,6 +664,10 @@ static uint8_t cdc_ctlx_out (usb_dev *udev)
         cdc->line_coding.bCharFormat = cdc->cmd[4];
         cdc->line_coding.bParityType = cdc->cmd[5];
         cdc->line_coding.bDataBits   = cdc->cmd[6];
+    case SET_COMM_FEATURE:
+    case CLEAR_COMM_FEATURE:
+	case SEND_ENCAPSULATED_COMMAND:
+		cdc_user_notify(0, EVT_DATA_OUT);
 		break;
 	default: break;
     }

@@ -182,6 +182,14 @@ endif
 #	r3core/async_queue.c 
 #	r3core/r3_slist.c 
 
+# cmsis_os2
+CMSIS_RTOS2 = 1
+ifdef CMSIS_RTOS2
+SRC += \
+	r3core/semaphore2.c \
+	r3core/message_queue.c \
+	r3core/memory_pool.c
+endif
 # Библиотека libc
 SRC += \
 	r3core/r3_slice.c \
@@ -215,6 +223,7 @@ SRC += \
 	r3core/main.c \
 	r3core/crc16.c \
 	r3core/config.c \
+	r3core/c11_cond.c \
 	r3core/service.c
 
 ifdef BACNET_SERVER

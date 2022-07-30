@@ -52,7 +52,8 @@ typedef struct {
     uint32_t resp_length;
 
 	usb_req req;
-    acm_line line_coding;
+    acm_line line_coding;//[CDC_SUB_ITF_COUNT];
+	uint32_t *features[CDC_SUB_ITF_COUNT];
 } usb_cdc_handler;
 
 extern const usb_desc cdc_desc;

@@ -12,7 +12,9 @@
 #define JUMP_FROM_LOADER_TO_APP                     0x06
 #define RESET_PIC                                   0x07
 #define GET_PIC_FLASH_POINTER                       0x08
+
 #define SET_VOLTAGE                                 0x10
+#define SET_VOLTAGE_SETTLING						0x11 // проверить!!
 #define SET_HASH_BOARD_ID                           0x12
 #define READ_HASH_BOARD_ID                          0x13
 #define ENABLE_VOLTAGE                              0x15
@@ -70,10 +72,12 @@ struct _Board {
 	} sensor[8];
 
 	// обмен запросами между процессами
-	uint8_t cmd;		//!< код операции 
-	uint8_t request_flag;	//!< номер бита флаг отклика
-	uint8_t resp_flag;	//!< номер бита флаг отклика
-	uint8_t resp_len;	//!< длина отклика
+	uint16_t cmd;		//!< код операции 
+	uint8_t* request_data;	//!< пакет данных в запросе
+	uint8_t  request_len ;	//!< длина пакета данных в запросе
+	uint8_t  request_flag;	//!< номер бита флаг отклика
+	uint8_t  resp_flag;	//!< номер бита флаг отклика
+	uint8_t  resp_len;	//!< длина отклика
 	uint8_t * response;	//!< буфер для ответа, подставляет 
 	osThreadId owner;	//!< Идентификатор процесса оброботки протокола
 	osThreadId resp_pid;	//!< Источник запроса, идентификатор процесса

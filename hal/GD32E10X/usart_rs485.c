@@ -71,8 +71,11 @@ static void usart_rs485_init(uint32_t usartx)
 		USART_BAUD(USART0) =  (BOARD_PCLK2*1000000UL + BOARD_USART0_BAUDRATE/2U)/BOARD_USART0_BAUDRATE;
 	} else 
 #endif
-#if defined (BOARD_USART1) && defined (BOARD_USART1_BAUDRATE)
+#if defined (BOARD_USART1)
 	if (usartx==USART1){
+# if !defined (BOARD_USART1_BAUDRATE)
+# define BOARD_USART1_BAUDRATE 115200
+# endif
 		USART_BAUD(USART1) =  (BOARD_PCLK1*1000000UL + BOARD_USART1_BAUDRATE/2U)/BOARD_USART1_BAUDRATE;
 	} else
 #endif
@@ -94,13 +97,24 @@ void* usart_open(uint32_t uart_id, int32_t flag)
 	h->rx.buffer = NULL;
 	h->tx_buffer = NULL;
 	uint32_t usartx = usarts[uart_id].port;
+    /* USART configure */
+    USART_CTL0(usartx) &=~(USART_CTL0_UEN);
+	USART_CTL0(usartx)  = (USART_CTL0(usartx) & ~(USART_CTL0_WL|USART_CTL0_PM | USART_CTL0_PCEN))
+		| (USART_WL_8BIT|USART_PM_NONE);
+	USART_CTL1(usartx)  = (USART_CTL1(usartx) & ~(USART_CTL1_STB)) | (USART_STB_1BIT);
 	usart_rs485_init(usartx);
 	USART_CTL0(usartx) |= USART_CTL0_REN| USART_CTL0_TEN;// включить прием и передачу
 	USART_CTL0(usartx) |= USART_CTL0_UEN;// включить USART
-	USART_CTL0(usartx) |= USART_CTL0_RBNEIE | USART_CTL0_TBEIE | USART_CTL0_TCIE;
+#if defined(BOARD_USART1_DMA)
+	USART_CTL0(usartx) &=~(USART_CTL0_RBNEIE | USART_CTL0_TBEIE | USART_CTL0_TCIE);
+	USART_RT(usartx)  = (USART_RT(usartx)&~(USART_RT_RT))|(20&USART_RT_RT);// Receive timeout enable
+	USART_CTL3(usartx)  = (USART_CTL3(usartx)&~(USART_CTL3_RTIE))|(USART_CTL3_RTIE|USART_CTL3_RTEN);// Receive timeout enable
+#else
+	USART_CTL0(usartx) |= USART_CTL0_RBNEIE | /* USART_CTL0_TBEIE |*/ USART_CTL0_TCIE;
+#endif
 	NVIC_SetPriority(usart->IRQn, 1);
 	NVIC_ClearPendingIRQ(usart->IRQn);
-	//NVIC_EnableIRQ(usart->IRQn);
+	NVIC_EnableIRQ(usart->IRQn);
 	return h;
 }
 #if 1
@@ -113,11 +127,13 @@ void* usart_dma_init(void* vh, int32_t flag)
 	DMA_init(tx_dma, DMA_CHXCTL_DIR|DMA_CHXCTL_MNAGA|DMA_CHXCTL_FTFIE | DMA_CHXCTL_ERRIE, (void*)((usartx) + 0x04U));
 	USART_CTL2(usartx) = (USART_CTL2(usartx) &~ (USART_CTL2_DENT)) | (USART_CTL2_DENT);
 	
+	DMA_open(usart->dmax, usart->tx_dma_channel, flag+1);
+	
 	DMA_Channel_t * rx_dma = DMA_channel(usart->dmax, usart->rx_dma_channel);
 	DMA_init(rx_dma, DMA_CHXCTL_MNAGA| DMA_CHXCTL_FTFIE| DMA_CHXCTL_CMEN | DMA_CHXCTL_HTFIE | DMA_CHXCTL_ERRIE, (void*)((usartx) + 0x04U));
 	/* configure DMA reception */
 	USART_CTL2(usartx) = (USART_CTL2(usartx) &~ (USART_CTL2_DENR)) | (USART_CTL2_DENR);
-	
+//	DMA_open(usart->dmax, usart->rx_dma_channel, flag);
 	return h;
 }
 #endif
@@ -125,15 +141,29 @@ void usart_dma_send(void* vh, void* data, uint16_t size)
 {
 	USART_Handle* h = vh;
 	const USART_t *usart = &usarts[h->uart_id];
+	uint32_t usartx=usart->port; 
 	DMA_Channel_t * tx_dma = DMA_channel(usart->dmax, usart->tx_dma_channel);
+	DMA_disable(tx_dma);// данные не могут быть записаны пока канал DMA включен
 	DMA_send_recv(tx_dma, data, size);
+//
 }
+int usart_dma_length(void* vh)
+{
+	USART_Handle* h = vh;
+	const USART_t *usart = &usarts[h->uart_id];
+	DMA_Channel_t * rx_dma = DMA_channel(usart->dmax, usart->rx_dma_channel);
+	return DMA_counter(rx_dma);
+}
+/* Возвращает размер до конца трансфера */
 void usart_dma_recv(void* vh, void* data, uint16_t size)
 {
 	USART_Handle* h = vh;
 	const USART_t *usart = &usarts[h->uart_id];
 	DMA_Channel_t * rx_dma = DMA_channel(usart->dmax, usart->rx_dma_channel);
+	DMA_disable(rx_dma);// данные не могут быть записаны пока канал DMA включен
+//	int len = DMA_counter(rx_dma);
 	DMA_send_recv(rx_dma, data, size);
+//	return len;
 }
 void usart_send(void* vh, void* data, uint16_t size)
 {
@@ -197,9 +227,18 @@ static void USARTn_IRQHandler(const uint32_t usartx, USART_Handle* h)
 		pio_reset_output(BOARD_USART0_TE);
 #endif
 
-
-		osSignalSet(h->owner, 1<<h->flag);
-		osThreadNotify(h->owner);
+		if (h->owner) {
+			osSignalSet(h->owner, 1<<h->flag);
+			osThreadNotify(h->owner);
+		}
+	}
+	if (USART_STAT1(usartx) & USART_STAT1_RTF) {
+		USART_STAT1(usartx) = 0;
+		if (h->owner) {
+			osSignalSet(h->owner, 1<<h->flag);
+			osThreadNotify(h->owner);
+		}
+		
 	}
 }
 #ifdef BOARD_USART0

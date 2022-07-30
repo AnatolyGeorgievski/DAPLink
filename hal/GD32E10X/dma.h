@@ -33,10 +33,10 @@ enum {
 
 typedef volatile struct _DMA_Channel DMA_Channel_t;
 struct _DMA_Channel {
-	uint32_t CTL;
-	uint32_t CNT;
-	uint32_t PADDR;
-	uint32_t MADDR;
+	__IO uint32_t CTL;
+	__IO uint32_t CNT;
+	__IO uint32_t PADDR;
+	__IO uint32_t MADDR;
 	uint32_t reserved;
 };
 
@@ -53,6 +53,7 @@ static inline void DMA_break(DMA_Channel_t*  ch, DMA_TypeDef*  dma, uint32_t cha
 	dma->IFCR = flag;
 }
 */
+void DMA_open(uint32_t dmax, int32_t channel, int32_t flag);
 /*!	\brief
 	\param mode
 	\param paddr адрес регистра переферии

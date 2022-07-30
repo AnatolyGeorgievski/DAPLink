@@ -127,7 +127,7 @@ int at24xx_read(uint32_t i2c, const uint8_t slave_addr, uint8_t address, uint8_t
 	\param i2c - порт I2C
 	\param slave_addr адрес устройства на линии
 	\param address адрес в памяти
-	\param buffer должно резервироваться место под арес
+	\param buffer должно резервироваться место под адрес
 	\param len длина последовательности. Можно всю память вычерпать.
 	
 	\note Если указать нулевую длину, то команда установит указатель для последовательного чтения.

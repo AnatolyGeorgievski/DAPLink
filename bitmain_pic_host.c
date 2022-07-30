@@ -83,7 +83,6 @@ int pic_set_remote_sensor(void* brd, uint8_t sensor_adr, uint8_t sensor_reg)
 	*(uint8_t*)(data+PIC_HDR+1) = sensor_reg;
 	return pic_cmd_send(brd, SET_PIC_FLASH_POINTER, data, len);
 }
-
 int pic_get_remote_sensor(void* brd, uint8_t sensor_addr, uint16_t* sensor_val)
 {
 	const uint8_t len = 6;
@@ -156,7 +155,7 @@ int pic_set_voltage_setting_time(void* brd, uint16_t settling_time)
 {
 	const uint8_t len = 2;
 	uint8_t data[len+6];
-	return pic_cmd_send(brd, SET_VOLTAGE, data, len);
+	return pic_cmd_send(brd, SET_VOLTAGE_SETTLING, data, len);
 }
 int pic_set_hash_board_id_number(void* brd, const uint8_t *buf)
 {
@@ -201,7 +200,7 @@ int pic_disable_voltage(void* brd)
 {
 	const uint8_t len = 1;
 	uint8_t data[len+6];
-	*(data+PIC_HDR) = 1;
+	*(data+PIC_HDR) = 0;
 	return pic_cmd_send(brd, ENABLE_VOLTAGE, data, len);
 }
 int pic_save_freq(void* brd, uint16_t freq)

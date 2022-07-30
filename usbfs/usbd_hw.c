@@ -55,26 +55,27 @@ int usb_is_configured()
 /*! \brief управление по выбранному интерфейсу */
 int usb_ctrl(int itf, int options, void* req){
 	usb_core_driver *udev = &cdc_acm;
+	usb_cdc_handler *cdc = (usb_cdc_handler *)udev->dev.class_data[CDC_COM_INTERFACE];
 	int res = 0;
 	switch (options & 0xF){
 	case 0: {// _GET_REQUEST
-		usb_cdc_handler *cdc = (usb_cdc_handler *)udev->dev.class_data[CDC_COM_INTERFACE];
-		
 		if (req){
 			*(usb_req*)req = cdc->req;
 			res = cdc->req.wLength;
 		}
 	}	break;
 	case 1: {// _RECV_BUFFER
-		usb_cdc_handler *cdc = (usb_cdc_handler *)udev->dev.class_data[CDC_COM_INTERFACE];
 		cdc->cmd = req;
 		res = cdc->data_length;// atomic_exchange??
 		cdc->data_length = 0;
 	}	break;
 	case 2: {// _SEND_BUFFER
-		usb_cdc_handler *cdc = (usb_cdc_handler *)udev->dev.class_data[CDC_COM_INTERFACE];
 		cdc->resp = req;
 		cdc->resp_length = options>>8;
+	}	break;
+	case 3: {// _FEATURES
+		if (0<itf && itf <= CDC_SUB_ITF_COUNT)
+			cdc->features[itf-1] = req;
 	}	break;
 	default: 
 		res = -1;
